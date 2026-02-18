@@ -2,14 +2,15 @@ const http = require('http');
 const sql = require('mssql');
 const url = require('url');
 
-// SQL Server configuration - user should update these
+// SQL Server configuration - UPDATE THESE VALUES FOR YOUR SETUP
 const config = {
-    server: process.env.SQL_SERVER || '172.27.112.1',
-    port: 1433,
-    database: process.env.SQL_DATABASE || 'test',
+    server: process.env.SQL_SERVER || 'localhost',  // Use 'localhost' or your server IP
+    port: parseInt(process.env.SQL_PORT) || 1433,
+    database: process.env.SQL_DATABASE || 'master',  // Default to 'master' or your database name
     options: {
         trustServerCertificate: true,
-        encrypt: true
+        encrypt: false,  // Set to true if using Azure
+        enableArithAbort: true
     }
     // For Windows Authentication (uses current user credentials):
     // No authentication section needed - relies on integrated security
@@ -63,7 +64,7 @@ const server = http.createServer(async (req, res) => {
         if (path === '/api/health' && method === 'GET') {
             await sql.connect(config);
             res.writeHead(200);
-            res.end(JSON.stringify({ status: 'ok', connected: true }));
+            res.end(JSON.stringify({ status: 'ok', connected: true, database: config.database }));
             return;
         }
 
@@ -75,18 +76,18 @@ const server = http.createServer(async (req, res) => {
                     t.name as table_name,
                     STRING_AGG(c.name + ':' + ty.name, ',') as columns
                 FROM sys.tables t
-                INNER JOIN sys.columns c ON t.object_id = c.object_id
-                INNER JOIN sys.types ty ON c.user_type_id = ty.user_type_id
+                LEFT JOIN sys.columns c ON t.object_id = c.object_id
+                LEFT JOIN sys.types ty ON c.user_type_id = ty.user_type_id
                 WHERE t.is_ms_shipped = 0
                 GROUP BY t.name
                 ORDER BY t.name
             `);
             
             const tables = result.recordset.map(row => {
-                const cols = row.columns.split(',').map(col => {
+                const cols = row.columns ? row.columns.split(',').map(col => {
                     const [name, type] = col.split(':');
                     return { column_name: name, data_type: type };
-                });
+                }) : [];
                 return { table_name: row.table_name, columns: cols };
             });
             
