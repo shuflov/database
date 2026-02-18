@@ -283,8 +283,9 @@ class DatabaseClient {
     async checkConnection() {
         if (this.mode === 'supabase') {
             try {
-                const { error } = await this.supabaseClient.from('information_schema.tables').select('*').limit(1);
-                return !error;
+                // Try to get tables using the RPC function - if this works, we're connected
+                await this.getTables();
+                return true;
             } catch (e) {
                 return false;
             }
