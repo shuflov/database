@@ -1,5 +1,4 @@
 // Global variables
-let supabaseClient = null;
 let tables = [];
 let currentEditRow = null;
 let currentEditTable = null;
@@ -60,21 +59,23 @@ toggleBtn.addEventListener('click', () => {
 });
 
 // Load settings from localStorage
-function loadSettings() {
-    const url = localStorage.getItem('supabase_url');
-    const key = localStorage.getItem('supabase_key');
+async function loadSettings() {
+    const initialized = dbClient.initialize();
     
-    if (url && key) {
+    if (initialized) {
         try {
-            supabaseClient = supabase.createClient(url, key);
-            updateConnectionStatus(true);
-            const btn = document.getElementById('createTableBtn');
-            if (btn) btn.disabled = false;
-            enableUploadButton();
-            loadTables();
-            return true;
+            const connected = await dbClient.checkConnection();
+            updateConnectionStatus(connected);
+            
+            if (connected) {
+                const btn = document.getElementById('createTableBtn');
+                if (btn) btn.disabled = false;
+                enableUploadButton();
+                loadTables();
+                return true;
+            }
         } catch (error) {
-            console.error('Error creating Supabase client:', error);
+            console.error('Error connecting to database:', error);
             updateConnectionStatus(false);
             return false;
         }
@@ -103,13 +104,35 @@ function showStatus(message, type = 'success') {
     }, 3000);
 }
 
+// Toggle database mode in settings
+function toggleDbMode() {
+    const isSupabase = document.getElementById('modeSupabase').checked;
+    document.getElementById('supabaseSettings').style.display = isSupabase ? 'block' : 'none';
+    document.getElementById('mssqlSettings').style.display = isSupabase ? 'none' : 'block';
+}
+
 // Settings Modal functions
 function openSettingsModal() {
+    const mode = localStorage.getItem('db_mode') || 'supabase';
+    
+    // Set radio button
+    if (mode === 'supabase') {
+        document.getElementById('modeSupabase').checked = true;
+    } else {
+        document.getElementById('modeMssql').checked = true;
+    }
+    toggleDbMode();
+    
+    // Load Supabase settings
     const url = localStorage.getItem('supabase_url') || '';
     const key = localStorage.getItem('supabase_key') || '';
-    
     document.getElementById('supabaseUrl').value = url;
     document.getElementById('supabaseKey').value = key;
+    
+    // Load MS SQL settings
+    const mssqlUrl = localStorage.getItem('mssql_url') || 'http://localhost:3000';
+    document.getElementById('mssqlUrl').value = mssqlUrl;
+    
     document.getElementById('settingsModal').style.display = 'block';
 }
 
@@ -117,49 +140,56 @@ function closeSettingsModal() {
     document.getElementById('settingsModal').style.display = 'none';
 }
 
-function saveSettings() {
-    const url = document.getElementById('supabaseUrl').value.trim();
-    const key = document.getElementById('supabaseKey').value.trim();
+async function saveSettings() {
+    const isSupabase = document.getElementById('modeSupabase').checked;
+    
+    if (isSupabase) {
+        // Save Supabase settings
+        const url = document.getElementById('supabaseUrl').value.trim();
+        const key = document.getElementById('supabaseKey').value.trim();
 
-    if (!url || !key) {
-        showStatus('Please enter both URL and API key', 'error');
-        return;
+        if (!url || !key) {
+            showStatus('Please enter both URL and API key', 'error');
+            return;
+        }
+
+        if (!url.startsWith('https://') || !url.includes('supabase.co')) {
+            showStatus('Invalid Supabase URL format', 'error');
+            return;
+        }
+
+        dbClient.setMode('supabase', { url, key });
+    } else {
+        // Save MS SQL settings
+        const mssqlUrl = document.getElementById('mssqlUrl').value.trim() || 'http://localhost:3000';
+        dbClient.setMode('mssql', { url: mssqlUrl });
     }
-
-    // Validate URL format
-    if (!url.startsWith('https://') || !url.includes('supabase.co')) {
-        showStatus('Invalid Supabase URL format', 'error');
-        return;
-    }
-
+    
     try {
-        // Save to localStorage
-        localStorage.setItem('supabase_url', url);
-        localStorage.setItem('supabase_key', key);
-
-        // Create client
-        supabaseClient = supabase.createClient(url, key);
+        const connected = await dbClient.checkConnection();
+        updateConnectionStatus(connected);
         
-        updateConnectionStatus(true);
-        const btn = document.getElementById('createTableBtn');
-        if (btn) btn.disabled = false;
-        enableUploadButton();
-        
-        showStatus('Settings saved! Loading your tables...');
-        closeSettingsModal();
-        
-        // Load tables
-        loadTables();
+        if (connected) {
+            const btn = document.getElementById('createTableBtn');
+            if (btn) btn.disabled = false;
+            enableUploadButton();
+            
+            showStatus('Settings saved! Loading your tables...');
+            closeSettingsModal();
+            loadTables();
+        } else {
+            showStatus('Could not connect. Check your settings.', 'error');
+        }
     } catch (error) {
-        showStatus('Error connecting to Supabase. Check your credentials.', 'error');
+        showStatus('Error connecting. Check your settings.', 'error');
         console.error('Error:', error);
     }
 }
 
 // Create Table Modal functions
 function openCreateModal() {
-    if (!supabaseClient) {
-        showStatus('Please configure Supabase settings first', 'warning');
+    if (!dbClient.isConnected()) {
+        showStatus('Please configure database settings first', 'warning');
         openSettingsModal();
         return;
     }
@@ -184,8 +214,8 @@ function addColumnInput() {
 
 // Create new table
 async function createTable() {
-    if (!supabaseClient) {
-        showStatus('Not connected to Supabase', 'error');
+    if (!dbClient.isConnected()) {
+        showStatus('Not connected to database', 'error');
         return;
     }
 
@@ -220,32 +250,17 @@ async function createTable() {
     }
 
     try {
-        // Build CREATE TABLE SQL
-        const columnDefs = columns.map(col => `${col} TEXT`).join(', ');
-        const sql = `
-            CREATE TABLE ${tableName} (
-                id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-                ${columnDefs},
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
-            );
-        `;
-
-        const { error } = await supabaseClient.rpc('execute_sql', { sql_query: sql });
-
-        if (error) {
-            if (error.message.includes('function') && error.message.includes('does not exist')) {
-                showStatus('Please create the execute_sql function. See README.', 'error');
-                alert(`You need to create the execute_sql function in Supabase:\n\nCREATE OR REPLACE FUNCTION execute_sql(sql_query text)\nRETURNS void AS $$\nBEGIN\n  EXECUTE sql_query;\nEND;\n$$ LANGUAGE plpgsql SECURITY DEFINER;`);
-            } else {
-                showStatus(`Error creating table: ${error.message}`, 'error');
-            }
-        } else {
-            showStatus(`Table "${tableName}" created successfully!`);
-            closeCreateModal();
-            loadTables();
-        }
+        await dbClient.createTable(tableName, columns);
+        showStatus(`Table "${tableName}" created successfully!`);
+        closeCreateModal();
+        loadTables();
     } catch (error) {
-        showStatus('Connection error', 'error');
+        if (error.message && error.message.includes('function') && error.message.includes('does not exist')) {
+            showStatus('Please create the execute_sql function. See README.', 'error');
+            alert(`You need to create the execute_sql function in Supabase:\n\nCREATE OR REPLACE FUNCTION execute_sql(sql_query text)\nRETURNS void AS $$\nBEGIN\n  EXECUTE sql_query;\nEND;\n$$ LANGUAGE plpgsql SECURITY DEFINER;`);
+        } else {
+            showStatus(`Error creating table: ${error.message}`, 'error');
+        }
         console.error('Error:', error);
     }
 }
@@ -270,8 +285,8 @@ async function handleFileUpload(event) {
         return;
     }
     
-    if (!supabaseClient) {
-        showStatus('Please configure Supabase settings first', 'warning');
+    if (!dbClient.isConnected()) {
+        showStatus('Please configure database settings first', 'warning');
         openSettingsModal();
         event.target.value = '';
         return;
@@ -457,49 +472,7 @@ async function importSelectedSheets() {
 
 // Create table from data object
 async function createTableFromData(tableName, headers, data) {
-    const sanitizedColumns = headers.map(col => {
-        const sanitized = col.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-        return { original: col, sanitized: sanitized || 'column' };
-    });
-    
-    const columnDefs = sanitizedColumns.map(col => col.sanitized + ' TEXT').join(', ');
-    const sql = 'CREATE TABLE ' + tableName + ' (id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY, ' + columnDefs + ', created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE(\'utc\', NOW()))';
-    
-    const { error: createError } = await supabaseClient.rpc('execute_sql', { sql_query: sql });
-    
-    if (createError) {
-        if (createError.message.includes('function') && createError.message.includes('does not exist')) {
-            throw new Error('execute_sql function not found');
-        }
-        throw new Error(createError.message);
-    }
-    
-    // Insert data in batches
-    const batchSize = 50;
-    for (let i = 0; i < data.length; i += batchSize) {
-        const batch = data.slice(i, i + batchSize);
-        
-        const valuesList = batch.map(row => {
-            const values = sanitizedColumns.map(col => {
-                const value = row[col.original];
-                if (value === null || value === undefined) {
-                    return 'NULL';
-                }
-                const escaped = String(value).replace(/'/g, "''");
-                return "'" + escaped + "'";
-            });
-            return '(' + values.join(', ') + ')';
-        }).join(', ');
-        
-        const columnNames = sanitizedColumns.map(col => col.sanitized).join(', ');
-        const insertSql = 'INSERT INTO ' + tableName + ' (' + columnNames + ') VALUES ' + valuesList;
-        
-        const { error: insertError } = await supabaseClient.rpc('execute_sql', { sql_query: insertSql });
-        
-        if (insertError) {
-            throw new Error(insertError.message);
-        }
-    }
+    await dbClient.createTableFromData(tableName, headers, data);
 }
 
 // Read file using SheetJS - returns all sheets
@@ -572,26 +545,24 @@ function generateTableNameFromSheet(sheetName) {
     return sanitized || 'imported_table';
 }
 
-// Load all tables from Supabase
+// Load all tables from database
 async function loadTables() {
-    if (!supabaseClient) {
+    if (!dbClient.isConnected()) {
         return;
     }
 
     try {
-        // Query the information_schema to get all user tables
-        const { data, error } = await supabaseClient.rpc('get_user_tables', {});
-
-        if (error) {
-            // If the function doesn't exist, show instructions
-            if (error.message.includes('function') && error.message.includes('does not exist')) {
-                showStatus('Please set up the database function. See README for instructions.', 'warning');
-                document.getElementById('tablesContainer').innerHTML = `
-                    <div class="setup-required">
-                        <h2>Database Setup Required</h2>
-                        <p>You need to create a function in Supabase to list tables.</p>
-                        <p>Go to Supabase SQL Editor and run:</p>
-                        <pre style="text-align: left; background: #f5f5f5; padding: 15px; border-radius: 4px; overflow-x: auto;">
+        tables = await dbClient.getTables();
+        renderTables();
+    } catch (error) {
+        if (error.message && error.message.includes('function') && error.message.includes('does not exist')) {
+            showStatus('Please set up the database function. See README for instructions.', 'warning');
+            document.getElementById('tablesContainer').innerHTML = `
+                <div class="setup-required">
+                    <h2>Database Setup Required</h2>
+                    <p>You need to create a function in Supabase to list tables.</p>
+                    <p>Go to Supabase SQL Editor and run:</p>
+                    <pre style="text-align: left; background: #f5f5f5; padding: 15px; border-radius: 4px; overflow-x: auto;">
 CREATE OR REPLACE FUNCTION get_user_tables()
 RETURNS TABLE(table_name text, columns jsonb) AS $$    
 BEGIN
@@ -614,20 +585,13 @@ BEGIN
   ORDER BY t.table_name;
 END;
     $$ LANGUAGE plpgsql SECURITY DEFINER;</pre>
-                        <button class="submit-btn" onclick="loadTables()" style="margin-top: 20px;">Retry After Setup</button>
-                    </div>
-                `;
-                return;
-            }
+                    <button class="submit-btn" onclick="loadTables()" style="margin-top: 20px;">Retry After Setup</button>
+                </div>
+            `;
+        } else {
             showStatus(`Error loading tables: ${error.message}`, 'error');
-            return;
+            console.error('Error:', error);
         }
-
-        tables = data || [];
-        renderTables();
-    } catch (error) {
-        showStatus('Connection error', 'error');
-        console.error('Error:', error);
     }
 }
 
@@ -670,8 +634,8 @@ function createTableElement(table) {
 
 // Table Management Modal
 function openTableManagementModal(tableName) {
-    if (!supabaseClient) {
-        showStatus('Not connected to Supabase', 'error');
+    if (!dbClient.isConnected()) {
+        showStatus('Not connected to database', 'error');
         return;
     }
 
@@ -713,8 +677,8 @@ function closeTableManagementModal() {
 
 // Add row from management modal
 async function addRowFromManagement() {
-    if (!supabaseClient || !currentManagementTable) {
-        showStatus('Not connected to Supabase', 'error');
+    if (!dbClient.isConnected() || !currentManagementTable) {
+        showStatus('Not connected to database', 'error');
         return;
     }
 
@@ -736,27 +700,20 @@ async function addRowFromManagement() {
     }
 
     try {
-        const { error } = await supabaseClient
-            .from(currentManagementTable)
-            .insert([data]);
-
-        if (error) {
-            showStatus(`Error adding row: ${error.message}`, 'error');
-        } else {
-            showStatus('Row added successfully!');
-            inputs.forEach(input => input.value = '');
-            loadTableData(currentManagementTable);
-        }
+        await dbClient.insertRow(currentManagementTable, data);
+        showStatus('Row added successfully!');
+        inputs.forEach(input => input.value = '');
+        loadTableData(currentManagementTable);
     } catch (error) {
-        showStatus('Connection error', 'error');
+        showStatus(`Error adding row: ${error.message}`, 'error');
         console.error('Error:', error);
     }
 }
 
 // Add column
 async function addColumn() {
-    if (!supabaseClient || !currentManagementTable) {
-        showStatus('Not connected to Supabase', 'error');
+    if (!dbClient.isConnected() || !currentManagementTable) {
+        showStatus('Not connected to database', 'error');
         return;
     }
 
@@ -773,27 +730,21 @@ async function addColumn() {
     }
 
     try {
-        const sql = `ALTER TABLE ${currentManagementTable} ADD COLUMN ${columnName} TEXT;`;
-        const { error } = await supabaseClient.rpc('execute_sql', { sql_query: sql });
-
-        if (error) {
-            showStatus(`Error adding column: ${error.message}`, 'error');
-        } else {
-            showStatus('Column added successfully!');
-            document.getElementById('newColumnName').value = '';
-            closeTableManagementModal();
-            loadTables();
-        }
+        await dbClient.addColumn(currentManagementTable, columnName);
+        showStatus('Column added successfully!');
+        document.getElementById('newColumnName').value = '';
+        closeTableManagementModal();
+        loadTables();
     } catch (error) {
-        showStatus('Connection error', 'error');
+        showStatus(`Error adding column: ${error.message}`, 'error');
         console.error('Error:', error);
     }
 }
 
 // Delete column
 async function deleteColumn() {
-    if (!supabaseClient || !currentManagementTable) {
-        showStatus('Not connected to Supabase', 'error');
+    if (!dbClient.isConnected() || !currentManagementTable) {
+        showStatus('Not connected to database', 'error');
         return;
     }
 
@@ -809,26 +760,20 @@ async function deleteColumn() {
     }
 
     try {
-        const sql = `ALTER TABLE ${currentManagementTable} DROP COLUMN ${columnName};`;
-        const { error } = await supabaseClient.rpc('execute_sql', { sql_query: sql });
-
-        if (error) {
-            showStatus(`Error deleting column: ${error.message}`, 'error');
-        } else {
-            showStatus('Column deleted successfully!');
-            closeTableManagementModal();
-            loadTables();
-        }
+        await dbClient.deleteColumn(currentManagementTable, columnName);
+        showStatus('Column deleted successfully!');
+        closeTableManagementModal();
+        loadTables();
     } catch (error) {
-        showStatus('Connection error', 'error');
+        showStatus(`Error deleting column: ${error.message}`, 'error');
         console.error('Error:', error);
     }
 }
 
 // Delete table from management modal
 async function deleteTableFromManagement() {
-    if (!supabaseClient || !currentManagementTable) {
-        showStatus('Not connected to Supabase', 'error');
+    if (!dbClient.isConnected() || !currentManagementTable) {
+        showStatus('Not connected to database', 'error');
         return;
     }
 
@@ -837,50 +782,28 @@ async function deleteTableFromManagement() {
     }
 
     try {
-        const sql = `DROP TABLE IF EXISTS ${currentManagementTable};`;
-        const { error } = await supabaseClient.rpc('execute_sql', { sql_query: sql });
-
-        if (error) {
-            showStatus(`Error deleting table: ${error.message}`, 'error');
-        } else {
-            showStatus('Table deleted successfully!');
-            closeTableManagementModal();
-            loadTables();
-        }
+        await dbClient.deleteTable(currentManagementTable);
+        showStatus('Table deleted successfully!');
+        closeTableManagementModal();
+        loadTables();
     } catch (error) {
-        showStatus('Connection error', 'error');
+        showStatus(`Error deleting table: ${error.message}`, 'error');
         console.error('Error:', error);
     }
 }
 
 // Load data for a specific table
 async function loadTableData(tableName, limit = 10) {
-    if (!supabaseClient) {
+    if (!dbClient.isConnected()) {
         return;
     }
 
     try {
         // Get total count first (to know if "Show more" is needed)
-        const { count, error: countError } = await supabaseClient
-            .from(tableName)
-            .select('*', { count: 'exact', head: true });
-
-        if (countError) {
-            document.getElementById(`table-data-${tableName}`).innerHTML = '<div class="empty-table">Error loading count</div>';
-            return;
-        }
+        const count = await dbClient.getRowCount(tableName);
 
         // Fetch limited rows
-        const { data, error } = await supabaseClient
-            .from(tableName)
-            .select('*')
-            .order('created_at', { ascending: true })
-            .limit(limit);
-
-        if (error) {
-            document.getElementById(`table-data-${tableName}`).innerHTML = '<div class="empty-table">Error loading data</div>';
-            return;
-        }
+        const data = await dbClient.getTableData(tableName, limit);
 
         const tableContainer = document.getElementById(`table-data-${tableName}`);
 
@@ -936,8 +859,8 @@ async function loadTableData(tableName, limit = 10) {
 
 // Edit Row Modal functions
 function openEditRowModal(rowId, tableName) {
-    if (!supabaseClient) {
-        showStatus('Not connected to Supabase', 'error');
+    if (!dbClient.isConnected()) {
+        showStatus('Not connected to database', 'error');
         return;
     }
 
@@ -950,14 +873,10 @@ function openEditRowModal(rowId, tableName) {
 
 async function loadRowForEdit(rowId, tableName) {
     try {
-        const { data, error } = await supabaseClient
-            .from(tableName)
-            .select('*')
-            .eq('id', rowId)
-            .single();
+        const data = await dbClient.getRow(tableName, rowId);
 
-        if (error) {
-            showStatus(`Error loading row: ${error.message}`, 'error');
+        if (!data) {
+            showStatus('Error loading row: Row not found', 'error');
             return;
         }
 
@@ -995,8 +914,8 @@ function closeEditRowModal() {
 }
 
 async function saveEdit() {
-    if (!supabaseClient || !currentEditRow || !currentEditTable) {
-        showStatus('Not connected to Supabase', 'error');
+    if (!dbClient.isConnected() || !currentEditRow || !currentEditTable) {
+        showStatus('Not connected to database', 'error');
         return;
     }
 
@@ -1008,28 +927,20 @@ async function saveEdit() {
     });
 
     try {
-        const { error } = await supabaseClient
-            .from(currentEditTable)
-            .update(data)
-            .eq('id', currentEditRow);
-
-        if (error) {
-            showStatus(`Error updating row: ${error.message}`, 'error');
-        } else {
-            showStatus('Row updated successfully!');
-            closeEditRowModal();
-            loadTableData(currentEditTable);
-        }
+        await dbClient.updateRow(currentEditTable, currentEditRow, data);
+        showStatus('Row updated successfully!');
+        closeEditRowModal();
+        loadTableData(currentEditTable);
     } catch (error) {
-        showStatus('Connection error', 'error');
+        showStatus(`Error updating row: ${error.message}`, 'error');
         console.error('Error:', error);
     }
 }
 
 // Delete row
 async function deleteRow(rowId, tableName) {
-    if (!supabaseClient) {
-        showStatus('Not connected to Supabase', 'error');
+    if (!dbClient.isConnected()) {
+        showStatus('Not connected to database', 'error');
         return;
     }
 
@@ -1038,19 +949,11 @@ async function deleteRow(rowId, tableName) {
     }
 
     try {
-        const { error } = await supabaseClient
-            .from(tableName)
-            .delete()
-            .eq('id', rowId);
-
-        if (error) {
-            showStatus(`Error deleting row: ${error.message}`, 'error');
-        } else {
-            showStatus('Row deleted successfully!');
-            loadTableData(tableName);
-        }
+        await dbClient.deleteRow(tableName, rowId);
+        showStatus('Row deleted successfully!');
+        loadTableData(tableName);
     } catch (error) {
-        showStatus('Connection error', 'error');
+        showStatus(`Error deleting row: ${error.message}`, 'error');
         console.error('Error:', error);
     }
 }

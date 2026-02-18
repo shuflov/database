@@ -30,8 +30,8 @@
     <div id="tablesContainer">
         <div class="setup-required">
             <h2>Welcome! 👋</h2>
-            <p>To get started, you need to configure your Supabase connection.</p>
-            <p>Click the "⚙️ Settings" button above to enter your Supabase URL and API key.</p>
+            <p>To get started, you need to configure your database connection.</p>
+            <p>Click the "⚙️ Settings" button above to connect to Supabase or a local MS SQL Server.</p>
             <button class="submit-btn" onclick="openSettingsModal()">Configure Settings</button>
         </div>
     </div>
@@ -40,20 +40,52 @@
     <div id="settingsModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Supabase Configuration</h2>
+                <h2>Database Configuration</h2>
                 <span class="close" onclick="closeSettingsModal()">&times;</span>
             </div>
             
             <div class="form-group">
-                <label for="supabaseUrl">Supabase URL:</label>
-                <input type="text" id="supabaseUrl" placeholder="https://your-project.supabase.co">
-                <small>Your Supabase project URL (found in Project Settings)</small>
+                <label>Connection Type:</label>
+                <div class="connection-type-selector">
+                    <label class="radio-label">
+                        <input type="radio" name="dbMode" value="supabase" id="modeSupabase" checked onchange="toggleDbMode()">
+                        <span>Supabase (Cloud)</span>
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="dbMode" value="mssql" id="modeMssql" onchange="toggleDbMode()">
+                        <span>MS SQL Server (Local)</span>
+                    </label>
+                </div>
             </div>
-            
-            <div class="form-group">
-                <label for="supabaseKey">Supabase Anon Key:</label>
-                <textarea id="supabaseKey" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."></textarea>
-                <small>Your Supabase anon/public key (found in Project Settings → API)</small>
+
+            <!-- Supabase Settings -->
+            <div id="supabaseSettings">
+                <div class="form-group">
+                    <label for="supabaseUrl">Supabase URL:</label>
+                    <input type="text" id="supabaseUrl" placeholder="https://your-project.supabase.co">
+                    <small>Your Supabase project URL (found in Project Settings)</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="supabaseKey">Supabase Anon Key:</label>
+                    <textarea id="supabaseKey" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."></textarea>
+                    <small>Your Supabase anon/public key (found in Project Settings → API)</small>
+                </div>
+            </div>
+
+            <!-- MS SQL Settings -->
+            <div id="mssqlSettings" style="display: none;">
+                <div class="form-group">
+                    <label for="mssqlUrl">Server URL:</label>
+                    <input type="text" id="mssqlUrl" placeholder="http://localhost:3000" value="http://localhost:3000">
+                    <small>Local Node.js server address (default: http://localhost:3000)</small>
+                </div>
+                <div class="form-group info-box">
+                    <small>
+                        <strong>Note:</strong> Make sure to start the local server first:<br>
+                        <code>npm start</code>
+                    </small>
+                </div>
             </div>
             
             <button class="submit-btn" onclick="saveSettings()">Save & Connect</button>
@@ -203,6 +235,7 @@
 
     <!-- Supabase JavaScript Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="db-client.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

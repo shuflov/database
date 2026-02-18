@@ -20,11 +20,15 @@ A powerful web application that creates **actual PostgreSQL tables** in your Sup
 
 ## Database Setup
 
-### Step 1: Create Required Functions
+Choose your database backend:
+
+### Option A: Supabase (Cloud PostgreSQL)
+
+#### Step 1: Create Required Functions
 
 Go to your Supabase SQL Editor and run these two functions:
 
-#### Function 1: `execute_sql` (Creates/Drops Tables)
+##### Function 1: `execute_sql` (Creates/Drops Tables)
 
 ```sql
 CREATE OR REPLACE FUNCTION execute_sql(sql_query text)
@@ -35,7 +39,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
-#### Function 2: `get_user_tables` (Lists All Tables)
+##### Function 2: `get_user_tables` (Lists All Tables)
 
 ```sql
 CREATE OR REPLACE FUNCTION get_user_tables()
@@ -62,36 +66,157 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
-### Why These Functions?
+#### Why These Functions?
 
 - **execute_sql**: Allows the app to run CREATE TABLE and DROP TABLE commands
 - **get_user_tables**: Lists all your tables and their columns
 - **SECURITY DEFINER**: Runs with elevated privileges (required for schema modifications)
 
+---
+
+### Option B: MS SQL Server (Local)
+
+Use a local Microsoft SQL Server instance instead of Supabase.
+
+#### Prerequisites
+
+1. **Node.js** installed (v14 or higher)
+2. **SQL Server** installed locally or accessible on network
+3. **SQL Server Authentication** configured (Windows Auth or SQL Auth)
+
+#### Step 1: Configure SQL Server Connection
+
+Edit `server.js` and update the config section (lines 6-20):
+
+**For Windows Authentication (default):**
+```javascript
+const config = {
+    server: 'localhost',              // Your SQL Server instance
+    database: 'master',               // Default database
+    options: {
+        trustServerCertificate: true,
+        encrypt: false
+    },
+    authentication: {
+        type: 'default'               // Uses Windows credentials
+    }
+};
+```
+
+**For SQL Server Authentication:**
+```javascript
+const config = {
+    server: 'localhost',
+    database: 'master',
+    user: 'sa',                       // SQL username
+    password: 'your_password',        // SQL password
+    options: {
+        trustServerCertificate: true,
+        encrypt: false
+    }
+};
+```
+
+**Common Connection Examples:**
+
+| Scenario | Server Value |
+|----------|-------------|
+| Default instance | `localhost` |
+| Named instance | `localhost\SQLEXPRESS` |
+| Remote server | `192.168.1.100` |
+| With port | `localhost,1433` |
+
+#### Step 2: Start the Local Server
+
+```bash
+# Install dependencies (first time only)
+npm install
+
+# Start the server
+npm start
+```
+
+You should see: `MS SQL Server running on port 3000`
+
+#### Step 3: Configure the App
+
+1. Open the app in your browser
+2. Click **⚙️ Settings**
+3. Select **"MS SQL Server (Local)"** as connection type
+4. Enter server URL: `http://localhost:3000`
+5. Click **Save & Connect**
+
+#### Troubleshooting MS SQL Connection
+
+**"ConnectionError: Failed to connect"**
+- Ensure SQL Server is running
+- Check that TCP/IP is enabled in SQL Server Configuration Manager
+- Verify firewall isn't blocking port 1433
+
+**"Login failed"**
+- Check username/password for SQL Auth
+- Ensure Windows user has permissions for Windows Auth
+- Verify the database exists
+
+**"EPIPE write error"**
+- SQL Server might be restarting
+- Try again in a few seconds
+
 ## Installation
+
+### For Supabase (Cloud) Mode:
 
 1. **Download the files**:
    - `index.html`
    - `style.css`
    - `script.js`
+   - `db-client.js`
 
-2. **Place all three files in the same directory**
+2. **Place all files in the same directory**
 
 3. **Open `index.html` in your web browser**
 
 No build process or server required!
 
+### For MS SQL (Local) Mode:
+
+1. **Download all files** including `server.js` and `package.json`
+
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+
+3. **Configure SQL Server** connection in `server.js`
+
+4. **Start the local server**:
+   ```bash
+   npm start
+   ```
+
+5. **Open `index.html` in your web browser**
+
 ## Configuration
 
 ### First-Time Setup
 
-1. Run the two SQL functions in Supabase (see Database Setup above)
-2. Open the application in your browser
-3. Click **⚙️ Settings**
-4. Enter your Supabase credentials:
-   - **Supabase URL**: Project Settings → API → Project URL
-   - **Supabase Anon Key**: Project Settings → API → anon/public key
-5. Click **Save & Connect**
+1. Open the application in your browser
+2. Click **⚙️ Settings**
+3. Choose your connection type:
+
+#### Supabase Mode
+- Select **"Supabase (Cloud)"**
+- Enter your Supabase credentials:
+  - **Supabase URL**: Project Settings → API → Project URL
+  - **Supabase Anon Key**: Project Settings → API → anon/public key
+- Make sure you've created the required SQL functions (see Database Setup above)
+
+#### MS SQL Server Mode
+- Select **"MS SQL Server (Local)"**
+- Enter server URL: `http://localhost:3000` (default)
+- Make sure the local Node.js server is running
+
+4. Click **Save & Connect**
 
 Your credentials are stored locally in your browser's localStorage.
 
@@ -177,13 +302,20 @@ Structure:
 dynamic-table-manager/
 ├── index.html      # Main HTML structure and modals
 ├── style.css       # All styling and responsive design
-└── script.js       # Application logic and Supabase integration
+├── script.js       # Application logic
+├── db-client.js    # Database abstraction layer (Supabase + MS SQL)
+├── server.js       # Local MS SQL Server backend (Node.js)
+├── package.json    # Node.js dependencies for server
+└── todo.md         # Implementation checklist
 ```
 
 ## Technology Stack
 
 - **Frontend**: Pure HTML, CSS, and JavaScript
-- **Database**: Supabase (PostgreSQL)
+- **Database Options**:
+  - Supabase (PostgreSQL) - Cloud hosted
+  - MS SQL Server - Local or network hosted
+- **Backend** (for MS SQL mode): Node.js with `mssql` package
 - **Storage**: LocalStorage for configuration
 - **CDN**: Supabase JS Client v2
 
@@ -288,6 +420,12 @@ For issues related to:
 Feel free to fork and modify this project!
 
 ## Changelog
+
+### Version 4.0
+- **Dual Backend Support**: Now supports both Supabase and MS SQL Server
+- **Local MS SQL Option**: Run with local SQL Server instead of cloud
+- **Database Abstraction Layer**: Unified interface for multiple backends
+- **Node.js Backend**: Added local server for MS SQL connectivity
 
 ### Version 3.0
 - Complete rewrite to create real PostgreSQL tables
