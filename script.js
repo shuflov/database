@@ -63,6 +63,11 @@ async function loadSettings() {
     const initialized = dbClient.initialize();
     
     if (initialized) {
+        // For MSSQL mode, send credentials to server
+        if (dbClient.getMode() === 'mssql') {
+            await dbClient.sendCredentialsToServer();
+        }
+        
         try {
             const connected = await dbClient.checkConnection();
             updateConnectionStatus(connected);
@@ -197,7 +202,47 @@ async function saveSettings() {
         dbClient.setMode('supabase', { url, key });
     } else {
         // Save MS SQL settings
+        const mssqlServer = document.getElementById('mssqlServer').value.trim() || 'localhost';
+        const mssqlPort = document.getElementById('mssqlPort').value.trim() || '1433';
+        const mssqlDatabase = document.getElementById('mssqlDatabase').value.trim() || 'test';
+        const mssqlUser = document.getElementById('mssqlUser').value.trim() || 'sa';
+        const mssqlPassword = document.getElementById('mssqlPassword').value;
         const mssqlUrl = document.getElementById('mssqlUrl').value.trim() || 'http://localhost:3000';
+
+        if (!mssqlPassword) {
+            showStatus('Please enter your SQL Server password', 'error');
+            return;
+        }
+
+        // Save credentials to localStorage
+        localStorage.setItem('mssql_server', mssqlServer);
+        localStorage.setItem('mssql_port', mssqlPort);
+        localStorage.setItem('mssql_database', mssqlDatabase);
+        localStorage.setItem('mssql_user', mssqlUser);
+        localStorage.setItem('mssql_password', mssqlPassword);
+
+        // Send credentials to server
+        try {
+            const response = await fetch(`${mssqlUrl}/api/config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    server: mssqlServer,
+                    port: parseInt(mssqlPort),
+                    database: mssqlDatabase,
+                    user: mssqlUser,
+                    password: mssqlPassword
+                })
+            });
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.error || 'Failed to configure server');
+            }
+        } catch (err) {
+            showStatus('Error configuring server: ' + err.message, 'error');
+            return;
+        }
+
         dbClient.setMode('mssql', { url: mssqlUrl });
     }
     

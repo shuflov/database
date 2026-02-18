@@ -32,9 +32,38 @@ class DatabaseClient {
         if (this.mode === 'supabase') {
             return this.supabaseClient !== null;
         } else if (this.mode === 'mssql') {
-            return true; // Will fail on first request if server not running
+            return this.mssqlBaseUrl !== null;
         }
         return false;
+    }
+
+    // Send credentials to server (for MSSQL mode)
+    async sendCredentialsToServer() {
+        const server = localStorage.getItem('mssql_server') || 'localhost';
+        const port = localStorage.getItem('mssql_port') || '1433';
+        const database = localStorage.getItem('mssql_database') || 'test';
+        const user = localStorage.getItem('mssql_user') || 'sa';
+        const password = localStorage.getItem('mssql_password') || '';
+
+        if (!password) return false;
+
+        try {
+            const response = await fetch(`${this.mssqlBaseUrl}/api/config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    server: server,
+                    port: parseInt(port),
+                    database: database,
+                    user: user,
+                    password: password
+                })
+            });
+            return response.ok;
+        } catch (e) {
+            console.error('Failed to send credentials to server:', e);
+            return false;
+        }
     }
 
     // Get current mode

@@ -84,9 +84,34 @@
             <!-- MS SQL Settings -->
             <div id="mssqlSettings" style="display: none;">
                 <div class="form-group">
-                    <label for="mssqlUrl">Server URL:</label>
+                    <label for="mssqlServer">SQL Server:</label>
+                    <input type="text" id="mssqlServer" placeholder="localhost" value="localhost">
+                    <small>Server IP or hostname (e.g., localhost or 192.168.1.100)</small>
+                </div>
+                <div class="form-group">
+                    <label for="mssqlPort">Port:</label>
+                    <input type="number" id="mssqlPort" placeholder="1433" value="1433">
+                    <small>SQL Server port (default: 1433)</small>
+                </div>
+                <div class="form-group">
+                    <label for="mssqlDatabase">Database:</label>
+                    <input type="text" id="mssqlDatabase" placeholder="test">
+                    <small>Database name (e.g., test, master)</small>
+                </div>
+                <div class="form-group">
+                    <label for="mssqlUser">Username:</label>
+                    <input type="text" id="mssqlUser" placeholder="sa">
+                    <small>SQL Server username</small>
+                </div>
+                <div class="form-group">
+                    <label for="mssqlPassword">Password:</label>
+                    <input type="password" id="mssqlPassword" placeholder="Enter your password">
+                    <small>SQL Server password</small>
+                </div>
+                <div class="form-group">
+                    <label for="mssqlUrl">Server API URL:</label>
                     <input type="text" id="mssqlUrl" placeholder="http://localhost:3000" value="http://localhost:3000">
-                    <small>Local Node.js server address (default: http://localhost:3000)</small>
+                    <small>Local Node.js server address</small>
                 </div>
                 <div class="form-group info-box">
                     <small>
