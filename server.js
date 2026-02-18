@@ -4,19 +4,18 @@ const url = require('url');
 
 // SQL Server configuration - user should update these
 const config = {
-    server: process.env.SQL_SERVER || 'localhost',
-    database: process.env.SQL_DATABASE || 'master',
+    server: process.env.SQL_SERVER || '172.27.112.1\\SQLEXPRESS',
+    database: process.env.SQL_DATABASE || 'test',
     options: {
         trustServerCertificate: true,
-        encrypt: false
-    },
-    // Use Windows Authentication by default
-    authentication: {
-        type: 'default'
+        encrypt: true
     }
-    // For SQL Server authentication, use:
+    // For Windows Authentication (uses current user credentials):
+    // No authentication section needed - relies on integrated security
+    
+    // For SQL Server authentication, uncomment and use:
     // user: process.env.SQL_USER || 'sa',
-    // password: process.env.SQL_PASSWORD || 'password'
+    // password: process.env.SQL_PASSWORD || 'your_password'
 };
 
 const PORT = process.env.PORT || 3000;
