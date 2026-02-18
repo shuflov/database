@@ -4,7 +4,8 @@ const url = require('url');
 
 // SQL Server configuration - user should update these
 const config = {
-    server: process.env.SQL_SERVER || '172.27.112.1\\SQLEXPRESS',
+    server: process.env.SQL_SERVER || '172.27.112.1',
+    port: 1433,
     database: process.env.SQL_DATABASE || 'test',
     options: {
         trustServerCertificate: true,
