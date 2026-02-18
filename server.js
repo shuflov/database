@@ -251,5 +251,5 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
     console.log(`MS SQL Server running on port ${PORT}`);
-    console.log(`Config: ${config.server}/${config.database}`);
+    console.log(`Config: ${currentConfig.server}/${currentConfig.database}`);
 });
