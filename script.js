@@ -152,13 +152,6 @@ function toggleDbMode() {
     document.getElementById('mssqlSettings').style.display = isSupabase ? 'none' : 'block';
 }
 
-// Toggle MS SQL authentication type
-function toggleMssqlAuthFields() {
-    const authType = document.getElementById('mssqlAuthType').value;
-    const sqlAuthFields = document.getElementById('sqlAuthFields');
-    sqlAuthFields.style.display = authType === 'sql' ? 'block' : 'none';
-}
-
 // Settings Modal functions
 function openSettingsModal() {
     const mode = localStorage.getItem('db_mode') || 'supabase';
@@ -212,12 +205,11 @@ async function saveSettings() {
         const mssqlServer = document.getElementById('mssqlServer').value.trim() || 'localhost';
         const mssqlPort = document.getElementById('mssqlPort').value.trim() || '1433';
         const mssqlDatabase = document.getElementById('mssqlDatabase').value.trim() || 'test';
-        const mssqlAuthType = document.getElementById('mssqlAuthType').value;
         const mssqlUser = document.getElementById('mssqlUser').value.trim() || 'sa';
         const mssqlPassword = document.getElementById('mssqlPassword').value;
         const mssqlUrl = document.getElementById('mssqlUrl').value.trim() || 'http://localhost:3000';
 
-        if (mssqlAuthType === 'sql' && !mssqlPassword) {
+        if (!mssqlPassword) {
             showStatus('Please enter your SQL Server password', 'error');
             return;
         }
@@ -226,28 +218,21 @@ async function saveSettings() {
         localStorage.setItem('mssql_server', mssqlServer);
         localStorage.setItem('mssql_port', mssqlPort);
         localStorage.setItem('mssql_database', mssqlDatabase);
-        localStorage.setItem('mssql_auth_type', mssqlAuthType);
         localStorage.setItem('mssql_user', mssqlUser);
         localStorage.setItem('mssql_password', mssqlPassword);
 
         // Send credentials to server
         try {
-            const configData = {
-                server: mssqlServer,
-                port: parseInt(mssqlPort),
-                database: mssqlDatabase,
-                authType: mssqlAuthType
-            };
-            
-            if (mssqlAuthType === 'sql') {
-                configData.user = mssqlUser;
-                configData.password = mssqlPassword;
-            }
-            
             const response = await fetch(`${mssqlUrl}/api/config`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(configData)
+                body: JSON.stringify({
+                    server: mssqlServer,
+                    port: parseInt(mssqlPort),
+                    database: mssqlDatabase,
+                    user: mssqlUser,
+                    password: mssqlPassword
+                })
             });
             if (!response.ok) {
                 const err = await response.json();

@@ -15,32 +15,18 @@ const defaultConfig = {
 };
 
 // Store user-provided credentials in memory
-let currentConfig = { 
-    ...defaultConfig,
-    authType: 'sql'  // 'sql' or 'windows'
-};
+let currentConfig = { ...defaultConfig };
 
 // Helper to get config (merges user credentials if provided)
 function getSqlConfig(userCredentials = {}) {
-    const config = {
+    return {
         server: userCredentials.server || currentConfig.server,
         port: userCredentials.port || currentConfig.port,
         database: userCredentials.database || currentConfig.database,
-        options: { ...currentConfig.options }
+        options: { ...currentConfig.options },
+        user: userCredentials.user || currentConfig.user,
+        password: userCredentials.password || currentConfig.password
     };
-    
-    const authType = userCredentials.authType || currentConfig.authType || 'sql';
-    
-    if (authType === 'windows') {
-        config.authentication = {
-            type: 'default'
-        };
-    } else {
-        config.user = userCredentials.user || currentConfig.user;
-        config.password = userCredentials.password || currentConfig.password;
-    }
-    
-    return config;
 }
 
 const PORT = process.env.PORT || 3000;
@@ -89,7 +75,6 @@ const server = http.createServer(async (req, res) => {
                 if (body.server) currentConfig.server = body.server;
                 if (body.port) currentConfig.port = parseInt(body.port);
                 if (body.database) currentConfig.database = body.database;
-                if (body.authType) currentConfig.authType = body.authType;
                 if (body.user) currentConfig.user = body.user;
                 if (body.password) currentConfig.password = body.password;
                 
@@ -98,8 +83,7 @@ const server = http.createServer(async (req, res) => {
                     server: currentConfig.server,
                     port: currentConfig.port,
                     database: currentConfig.database,
-                    authType: currentConfig.authType,
-                    user: currentConfig.authType === 'sql' ? currentConfig.user : 'Windows'
+                    user: currentConfig.user
                 }}));
             });
             return;
@@ -107,8 +91,7 @@ const server = http.createServer(async (req, res) => {
 
         // Health check
         if (path === '/api/health' && method === 'GET') {
-            const config = getSqlConfig();
-            await sql.connect(config);
+            await sql.connect(currentConfig);
             res.writeHead(200);
             res.end(JSON.stringify({ status: 'ok', connected: true, database: currentConfig.database }));
             return;
@@ -116,7 +99,7 @@ const server = http.createServer(async (req, res) => {
 
         // List all tables
         if (path === '/api/tables' && method === 'GET') {
-            await sql.connect(getSqlConfig());
+            await sql.connect(currentConfig);
             const result = await sql.query(`
                 SELECT 
                     t.name as table_name,
@@ -147,7 +130,7 @@ const server = http.createServer(async (req, res) => {
             const tableName = path.match(/\/api\/tables\/([^/]+)$/)[1];
             const limit = parsedUrl.query.limit || 100;
             
-            await sql.connect(getSqlConfig());
+            await sql.connect(currentConfig);
             const result = await sql.query(`
                 SELECT TOP ${limit} * FROM [${tableName}] ORDER BY id
             `);
@@ -171,7 +154,7 @@ const server = http.createServer(async (req, res) => {
                     )
                 `;
                 
-                await sql.connect(getSqlConfig());
+                await sql.connect(currentConfig);
                 await sql.query(query);
                 
                 res.writeHead(201);
@@ -189,7 +172,7 @@ const server = http.createServer(async (req, res) => {
                 const values = Object.values(body).map(v => `'${String(v).replace(/'/g, "''")}'`);
                 
                 const query = `INSERT INTO [${tableName}] ([${columns.join('], [')}]) VALUES (${values.join(', ')})`;
-                await sql.connect(getSqlConfig());
+                await sql.connect(currentConfig);
                 await sql.query(query);
                 
                 res.writeHead(201);
@@ -207,7 +190,7 @@ const server = http.createServer(async (req, res) => {
             parseBody(req, async (body) => {
                 const sets = Object.entries(body).map(([k, v]) => `[${k}] = '${String(v).replace(/'/g, "''")}'`).join(', ');
                 const query = `UPDATE [${tableName}] SET ${sets} WHERE id = ${rowId}`;
-                await sql.connect(getSqlConfig());
+                await sql.connect(currentConfig);
                 await sql.query(query);
                 
                 res.writeHead(200);
@@ -222,7 +205,7 @@ const server = http.createServer(async (req, res) => {
             const tableName = match[1];
             const rowId = match[2];
             
-            await sql.connect(getSqlConfig());
+            await sql.connect(currentConfig);
             await sql.query(`DELETE FROM [${tableName}] WHERE id = ${rowId}`);
             
             res.writeHead(200);
