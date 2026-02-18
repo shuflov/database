@@ -6,7 +6,7 @@ const url = require('url');
 const config = {
     server: process.env.SQL_SERVER || 'localhost',  // Use 'localhost' or your server IP
     port: parseInt(process.env.SQL_PORT) || 1433,
-    database: process.env.SQL_DATABASE || 'master',  // Default to 'master' or your database name
+    database: process.env.SQL_DATABASE || 'test',  // Your database name
     options: {
         trustServerCertificate: true,
         encrypt: false,  // Set to true if using Azure
