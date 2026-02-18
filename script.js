@@ -86,12 +86,48 @@ async function loadSettings() {
 // Update connection status indicator
 function updateConnectionStatus(connected) {
     const dotEl = document.getElementById('connectionDot');
+    const infoEl = document.getElementById('connectionInfo');
+    const modeEl = document.getElementById('connectionMode');
+    const detailsEl = document.getElementById('connectionDetails');
+    const statusEl = document.getElementById('connectionStatus');
+    
     if (!dotEl) return;
     
     if (connected) {
         dotEl.className = 'connection-dot connected';
     } else {
         dotEl.className = 'connection-dot disconnected';
+    }
+    
+    // Update connection info bar
+    if (infoEl && modeEl && detailsEl && statusEl) {
+        const mode = dbClient.getMode();
+        
+        if (mode) {
+            infoEl.classList.remove('hidden');
+            
+            if (mode === 'supabase') {
+                modeEl.textContent = 'Supabase';
+                const url = localStorage.getItem('supabase_url') || '';
+                // Extract project name from URL
+                const match = url.match(/https:\/\/([^\.]+)\.supabase\.co/);
+                detailsEl.textContent = match ? match[1] : 'Cloud';
+            } else if (mode === 'mssql') {
+                modeEl.textContent = 'MS SQL';
+                const server = localStorage.getItem('mssql_url') || 'localhost:3000';
+                detailsEl.textContent = server.replace('http://', '').replace('https://', '');
+            }
+            
+            if (connected) {
+                statusEl.textContent = 'Connected';
+                statusEl.className = 'connection-status connected';
+            } else {
+                statusEl.textContent = 'Disconnected';
+                statusEl.className = 'connection-status';
+            }
+        } else {
+            infoEl.classList.add('hidden');
+        }
     }
 }
 

@@ -12,6 +12,14 @@
     <div class="header">
         <h1>Dynamic Table Manager</h1>
         <p>Create and manage your custom tables - track anything with rows and columns!</p>
+        
+        <!-- Connection Info Bar -->
+        <div id="connectionInfo" class="connection-info hidden">
+            <span id="connectionMode" class="connection-mode"></span>
+            <span id="connectionDetails" class="connection-details"></span>
+            <span id="connectionStatus" class="connection-status"></span>
+        </div>
+        
         <div>
             <button class="create-list-btn" id="createTableBtn" onclick="openCreateModal()" disabled>Create New Table</button>
             <button class="create-list-btn" id="uploadTableBtn" onclick="document.getElementById('fileInput').click()" disabled>📁 Upload Table</button>
