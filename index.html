@@ -89,11 +89,6 @@
                     <small>Server IP or hostname (e.g., localhost or 192.168.1.100)</small>
                 </div>
                 <div class="form-group">
-                    <label for="mssqlPort">Port:</label>
-                    <input type="number" id="mssqlPort" placeholder="1433" value="1433">
-                    <small>SQL Server port (default: 1433)</small>
-                </div>
-                <div class="form-group">
                     <label for="mssqlDatabase">Database:</label>
                     <input type="text" id="mssqlDatabase" placeholder="test">
                     <small>Database name (e.g., test, master)</small>
@@ -104,9 +99,14 @@
                     <small>SQL Server username</small>
                 </div>
                 <div class="form-group">
-                    <label for="mssqlPassword">Password:</label>
+                    <label for="mssqlPassword">Password: <span style="color: red;">*</span></label>
                     <input type="password" id="mssqlPassword" placeholder="Enter your password">
-                    <small>SQL Server password</small>
+                    <small>SQL Server password (required)</small>
+                </div>
+                <div class="form-group">
+                    <label for="mssqlPort">Port:</label>
+                    <input type="number" id="mssqlPort" placeholder="1433" value="1433">
+                    <small>SQL Server port (default: 1433)</small>
                 </div>
                 <div class="form-group">
                     <label for="mssqlUrl">Server API URL:</label>
