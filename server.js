@@ -20,9 +20,9 @@ let currentConfig = { ...defaultConfig };
 // Helper to get config (merges user credentials if provided)
 function getSqlConfig(userCredentials = {}) {
   return {
-    server: userCredentials.server || currentConfig.server,
-    port: userCredentials.port || currentConfig.port,
-    database: userCredentials.database || currentConfig.database,
+    server: userCredentials.server || currentConfig.server || '.\\SQLEXPRESS',  // force correct name
+    port: userCredentials.port || currentConfig.port || 1433,
+    database: userCredentials.database || currentConfig.database || 'test',
     user: userCredentials.user || currentConfig.user || 'appuser',
     password: userCredentials.password || currentConfig.password || 'Test1234!',
     options: {
