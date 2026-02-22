@@ -1,17 +1,17 @@
 const http = require('http');
-const sql = require('mssql/msnodesqlv8');
+const sql = require('mssql');
 const url = require('url');
 
 // Default SQL Server configuration
 const defaultConfig = {
-    server: process.env.SQL_SERVER || 'localhost',
-    port: parseInt(process.env.SQL_PORT) || 1433,
-    database: process.env.SQL_DATABASE || 'test',
-    options: {
-        trustServerCertificate: true,
-        encrypt: false,
-        enableArithAbort: true
-    }
+  server: process.env.SQL_SERVER || '.\\SQLEXPRESS',   // <-- change here (double backslash!)
+  port: parseInt(process.env.SQL_PORT) || 1433,
+  database: process.env.SQL_DATABASE || 'test',
+  options: {
+    trustServerCertificate: true,
+    encrypt: false,
+    enableArithAbort: true
+  }
 };
 
 // Store user-provided credentials in memory
@@ -19,27 +19,18 @@ let currentConfig = { ...defaultConfig };
 
 // Helper to get config (merges user credentials if provided)
 function getSqlConfig(userCredentials = {}) {
-  const baseConfig = {
+  return {
     server: userCredentials.server || currentConfig.server,
     port: userCredentials.port || currentConfig.port,
     database: userCredentials.database || currentConfig.database,
+    user: userCredentials.user || currentConfig.user || 'appuser',
+    password: userCredentials.password || currentConfig.password || 'Test1234!',
     options: {
       trustServerCertificate: true,
       encrypt: false,
       enableArithAbort: true
     }
   };
-
-  if (userCredentials.user && userCredentials.password) {
-    // SQL Auth
-    baseConfig.user = userCredentials.user;
-    baseConfig.password = userCredentials.password;
-  } else {
-    // Windows Auth (Integrated Security)
-    baseConfig.options.trustedConnection = true;
-  }
-
-  return baseConfig;
 }
 
 const PORT = process.env.PORT || 3000;
