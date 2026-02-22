@@ -4,9 +4,11 @@ const url = require('url');
 
 // Default SQL Server configuration
 const defaultConfig = {
-  server: process.env.SQL_SERVER || 'localhost',
-  port: parseInt(process.env.SQL_PORT) || 1433,
-  database: process.env.SQL_DATABASE || 'test',
+  server: '.\\SQLEXPRESS',               // force correct instance from start
+  port: 1433,
+  database: 'test',
+  user: 'appuser',
+  password: 'Test1234!',
   options: {
     trustServerCertificate: true,
     encrypt: false,
@@ -17,20 +19,24 @@ const defaultConfig = {
 // Store user-provided credentials in memory
 let currentConfig = { ...defaultConfig };
 
-// Helper to get config (merges user credentials if provided)
+// Helper to get config — ALWAYS merge with forced defaults if invalid
 function getSqlConfig(userCredentials = {}) {
-  return {
-    server: userCredentials.server || currentConfig.server || '.\\SQLEXPRESS',  // force correct name
-    port: userCredentials.port || currentConfig.port || 1433,
-    database: userCredentials.database || currentConfig.database || 'test',
-    user: userCredentials.user || currentConfig.user || 'appuser',
-    password: userCredentials.password || currentConfig.password || 'Test1234!',
-    options: {
-      trustServerCertificate: true,
-      encrypt: false,
-      enableArithAbort: true
+  const cfg = { ...currentConfig };
+
+  // Override with user input, but fix common mistakes
+  if (userCredentials.server) {
+    let srv = userCredentials.server.trim();
+    if (srv === '.' || srv === '' || srv === 'localhost') {
+      srv = '.\\SQLEXPRESS'; // force correct name
     }
-  };
+    cfg.server = srv;
+  }
+  if (userCredentials.port) cfg.port = parseInt(userCredentials.port) || 1433;
+  if (userCredentials.database) cfg.database = userCredentials.database.trim() || 'test';
+  if (userCredentials.user) cfg.user = userCredentials.user.trim() || 'appuser';
+  if (userCredentials.password) cfg.password = userCredentials.password || 'Test1234!';
+
+  return cfg;
 }
 
 const PORT = process.env.PORT || 3000;
