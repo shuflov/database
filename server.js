@@ -82,19 +82,19 @@ const server = http.createServer(async (req, res) => {
         // Set SQL Server configuration
         if (path === '/api/config' && method === 'POST') {
             parseBody(req, async (body) => {
-                if (body.server) currentConfig.server = body.server;
-                if (body.port) currentConfig.port = parseInt(body.port);
-                if (body.database) currentConfig.database = body.database;
-                if (body.user) currentConfig.user = body.user;
-                if (body.password) currentConfig.password = body.password;
-                
+                // Update currentConfig with validated values
+                currentConfig = getSqlConfig(body);
+
                 res.writeHead(200);
-                res.end(JSON.stringify({ message: 'Config updated', config: {
+                res.end(JSON.stringify({ 
+                message: 'Config updated', 
+                config: {
                     server: currentConfig.server,
                     port: currentConfig.port,
                     database: currentConfig.database,
-                    user: currentConfig.user
-                }}));
+                    user: currentConfig.user ? currentConfig.user : '(using default)'
+                }
+                }));
             });
             return;
         }
