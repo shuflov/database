@@ -45,7 +45,7 @@ class DatabaseClient {
         const user = localStorage.getItem('db_mssql_user') || 'sa';
         const password = localStorage.getItem('db_mssql_password') || '';
 
-        if (!password) return false;
+       /* if (!password) return false;*/
 
         try {
             const response = await fetch(`${this.mssqlBaseUrl}/api/config`, {

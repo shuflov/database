@@ -219,10 +219,10 @@ async function saveSettings() {
         const mssqlPassword = document.getElementById('mssqlPassword').value;
         const mssqlUrl = document.getElementById('mssqlUrl').value.trim() || 'http://localhost:3000';
 
-        if (!mssqlPassword) {
+       /* if (!mssqlPassword) {
             showStatus('Please enter your SQL Server password', 'error');
             return;
-        }
+        }*/
 
         // Save credentials to localStorage
         localStorage.setItem('db_mssql_server', mssqlServer);
