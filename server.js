@@ -3,16 +3,20 @@ const sql = require('mssql');
 const url = require('url');
 
 // Default SQL Server configuration
-const defaultConfig = {
-  server: process.env.SQL_SERVER || '.\\SQLEXPRESS',   // <-- change here (double backslash!)
-  port: parseInt(process.env.SQL_PORT) || 1433,
-  database: process.env.SQL_DATABASE || 'test',
-  options: {
-    trustServerCertificate: true,
-    encrypt: false,
-    enableArithAbort: true
-  }
-};
+function getSqlConfig(userCredentials = {}) {
+  return {
+    server: userCredentials.server || currentConfig.server || '.\\SQLEXPRESS',  // force correct name
+    port: userCredentials.port || currentConfig.port || 1433,
+    database: userCredentials.database || currentConfig.database || 'test',
+    user: userCredentials.user || currentConfig.user || 'appuser',
+    password: userCredentials.password || currentConfig.password || 'Test1234!',
+    options: {
+      trustServerCertificate: true,
+      encrypt: false,
+      enableArithAbort: true
+    }
+  };
+}
 
 // Store user-provided credentials in memory
 let currentConfig = { ...defaultConfig };
