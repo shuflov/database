@@ -7,6 +7,16 @@ let uploadedData = null;
 let uploadedFileName = null;
 let uploadedSheetsData = null;
 
+// One-time migration: clear old localStorage keys (conflicted with shuflov.github.io)
+(function() {
+    const oldKeys = [
+        'darkMode', 'db_mode', 'supabase_url', 'supabase_key',
+        'mssql_url', 'mssql_server', 'mssql_port', 'mssql_database',
+        'mssql_user', 'mssql_password'
+    ];
+    oldKeys.forEach(key => localStorage.removeItem(key));
+})();
+
 // Modal drag functionality
 let isDragging = false;
 let currentDragModal = null;
@@ -47,7 +57,7 @@ document.addEventListener('mouseup', function() {
 const toggleBtn = document.getElementById('dark-mode-toggle');
 
 // Load saved preference (if any) when the page starts
-const savedPreference = localStorage.getItem('darkMode');
+const savedPreference = localStorage.getItem('db_darkMode');
 if (savedPreference === 'true') {
   document.body.classList.add('dark-mode');
 }
@@ -55,7 +65,7 @@ if (savedPreference === 'true') {
 // Click handler – toggle the class and store the new state
 toggleBtn.addEventListener('click', () => {
   const isDark = document.body.classList.toggle('dark-mode');
-  localStorage.setItem('darkMode', isDark); // persist across reloads
+  localStorage.setItem('db_darkMode', isDark); // persist across reloads
 });
 
 // Load settings from localStorage
@@ -113,13 +123,13 @@ function updateConnectionStatus(connected) {
             
             if (mode === 'supabase') {
                 modeEl.textContent = 'Supabase';
-                const url = localStorage.getItem('supabase_url') || '';
+                const url = localStorage.getItem('db_supabase_url') || '';
                 // Extract project name from URL
                 const match = url.match(/https:\/\/([^\.]+)\.supabase\.co/);
                 detailsEl.textContent = match ? match[1] : 'Cloud';
             } else if (mode === 'mssql') {
                 modeEl.textContent = 'MS SQL';
-                const server = localStorage.getItem('mssql_url') || 'localhost:3000';
+                const server = localStorage.getItem('db_mssql_url') || 'localhost:3000';
                 detailsEl.textContent = server.replace('http://', '').replace('https://', '');
             }
             
@@ -154,7 +164,7 @@ function toggleDbMode() {
 
 // Settings Modal functions
 function openSettingsModal() {
-    const mode = localStorage.getItem('db_mode') || 'supabase';
+    const mode = localStorage.getItem('db_db_mode') || 'supabase';
     
     // Set radio button
     if (mode === 'supabase') {
@@ -165,13 +175,13 @@ function openSettingsModal() {
     toggleDbMode();
     
     // Load Supabase settings
-    const url = localStorage.getItem('supabase_url') || '';
-    const key = localStorage.getItem('supabase_key') || '';
+    const url = localStorage.getItem('db_supabase_url') || '';
+    const key = localStorage.getItem('db_supabase_key') || '';
     document.getElementById('supabaseUrl').value = url;
     document.getElementById('supabaseKey').value = key;
     
     // Load MS SQL settings
-    const mssqlUrl = localStorage.getItem('mssql_url') || 'http://localhost:3000';
+    const mssqlUrl = localStorage.getItem('db_mssql_url') || 'http://localhost:3000';
     document.getElementById('mssqlUrl').value = mssqlUrl;
     
     document.getElementById('settingsModal').style.display = 'block';
@@ -215,11 +225,11 @@ async function saveSettings() {
         }
 
         // Save credentials to localStorage
-        localStorage.setItem('mssql_server', mssqlServer);
-        localStorage.setItem('mssql_port', mssqlPort);
-        localStorage.setItem('mssql_database', mssqlDatabase);
-        localStorage.setItem('mssql_user', mssqlUser);
-        localStorage.setItem('mssql_password', mssqlPassword);
+        localStorage.setItem('db_mssql_server', mssqlServer);
+        localStorage.setItem('db_mssql_port', mssqlPort);
+        localStorage.setItem('db_mssql_database', mssqlDatabase);
+        localStorage.setItem('db_mssql_user', mssqlUser);
+        localStorage.setItem('db_mssql_password', mssqlPassword);
 
         // Send credentials to server
         try {

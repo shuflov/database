@@ -10,18 +10,18 @@ class DatabaseClient {
 
     // Initialize based on stored settings
     initialize() {
-        this.mode = localStorage.getItem('db_mode') || 'supabase';
+        this.mode = localStorage.getItem('db_db_mode') || 'supabase';
         
         if (this.mode === 'supabase') {
-            const url = localStorage.getItem('supabase_url');
-            const key = localStorage.getItem('supabase_key');
+            const url = localStorage.getItem('db_supabase_url');
+            const key = localStorage.getItem('db_supabase_key');
             if (url && key && typeof supabase !== 'undefined') {
                 this.supabaseClient = supabase.createClient(url, key);
                 return true;
             }
             return false;
         } else if (this.mode === 'mssql') {
-            this.mssqlBaseUrl = localStorage.getItem('mssql_url') || 'http://localhost:3000';
+            this.mssqlBaseUrl = localStorage.getItem('db_mssql_url') || 'http://localhost:3000';
             return true;
         }
         return false;
@@ -39,11 +39,11 @@ class DatabaseClient {
 
     // Send credentials to server (for MSSQL mode)
     async sendCredentialsToServer() {
-        const server = localStorage.getItem('mssql_server') || 'localhost';
-        const port = localStorage.getItem('mssql_port') || '1433';
-        const database = localStorage.getItem('mssql_database') || 'test';
-        const user = localStorage.getItem('mssql_user') || 'sa';
-        const password = localStorage.getItem('mssql_password') || '';
+        const server = localStorage.getItem('db_mssql_server') || 'localhost';
+        const port = localStorage.getItem('db_mssql_port') || '1433';
+        const database = localStorage.getItem('db_mssql_database') || 'test';
+        const user = localStorage.getItem('db_mssql_user') || 'sa';
+        const password = localStorage.getItem('db_mssql_password') || '';
 
         if (!password) return false;
 
@@ -74,18 +74,18 @@ class DatabaseClient {
     // Set mode and reinitialize
     setMode(mode, config = {}) {
         this.mode = mode;
-        localStorage.setItem('db_mode', mode);
+        localStorage.setItem('db_db_mode', mode);
         
         if (mode === 'supabase') {
             if (config.url && config.key) {
-                localStorage.setItem('supabase_url', config.url);
-                localStorage.setItem('supabase_key', config.key);
+                localStorage.setItem('db_supabase_url', config.url);
+                localStorage.setItem('db_supabase_key', config.key);
                 this.supabaseClient = supabase.createClient(config.url, config.key);
             }
         } else if (mode === 'mssql') {
             if (config.url) {
                 this.mssqlBaseUrl = config.url;
-                localStorage.setItem('mssql_url', config.url);
+                localStorage.setItem('db_mssql_url', config.url);
             }
         }
     }
