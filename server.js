@@ -1,5 +1,5 @@
 const http = require('http');
-const sql = require('mssql');
+const sql = require('mssql/msnodesqlv8');
 const url = require('url');
 
 // Default SQL Server configuration
@@ -19,14 +19,27 @@ let currentConfig = { ...defaultConfig };
 
 // Helper to get config (merges user credentials if provided)
 function getSqlConfig(userCredentials = {}) {
-    return {
-        server: userCredentials.server || currentConfig.server,
-        port: userCredentials.port || currentConfig.port,
-        database: userCredentials.database || currentConfig.database,
-        options: { ...currentConfig.options },
-        user: userCredentials.user || currentConfig.user,
-        password: userCredentials.password || currentConfig.password
-    };
+  const baseConfig = {
+    server: userCredentials.server || currentConfig.server,
+    port: userCredentials.port || currentConfig.port,
+    database: userCredentials.database || currentConfig.database,
+    options: {
+      trustServerCertificate: true,
+      encrypt: false,
+      enableArithAbort: true
+    }
+  };
+
+  if (userCredentials.user && userCredentials.password) {
+    // SQL Auth
+    baseConfig.user = userCredentials.user;
+    baseConfig.password = userCredentials.password;
+  } else {
+    // Windows Auth (Integrated Security)
+    baseConfig.options.trustedConnection = true;
+  }
+
+  return baseConfig;
 }
 
 const PORT = process.env.PORT || 3000;

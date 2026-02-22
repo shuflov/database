@@ -8,6 +8,7 @@
     "dev": "node server.js"
   },
   "dependencies": {
+    "msnodesqlv8": "^5.1.5",
     "mssql": "^10.0.1"
   }
 }
