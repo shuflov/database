@@ -221,54 +221,56 @@ async function saveSettings() {
 
         dbClient.setMode('supabase', { url, key });
     } else {
-        // Save MS SQL settings
-        const mssqlServer = document.getElementById('mssqlServer').value.trim() || 'localhost';
-        const mssqlPort = document.getElementById('mssqlPort').value.trim() || '1433';
-        const mssqlDatabase = document.getElementById('mssqlDatabase').value.trim() || 'test';
-        const mssqlUser = document.getElementById('mssqlUser').value.trim() || 'sa';
-        const mssqlPassword = document.getElementById('mssqlPassword').value;
-        const mssqlUrl = document.getElementById('mssqlUrl').value.trim() || 'http://localhost:3000';
+        if (document.getElementById('modeMssql').checked) {
+            // Save MS SQL settings
+            const mssqlServer = document.getElementById('mssqlServer').value.trim() || 'localhost';
+            const mssqlPort = document.getElementById('mssqlPort').value.trim() || '1433';
+            const mssqlDatabase = document.getElementById('mssqlDatabase').value.trim() || 'test';
+            const mssqlUser = document.getElementById('mssqlUser').value.trim() || 'sa';
+            const mssqlPassword = document.getElementById('mssqlPassword').value;
+            const mssqlUrl = document.getElementById('mssqlUrl').value.trim() || 'http://localhost:3000';
 
-       /* if (!mssqlPassword) {
-            showStatus('Please enter your SQL Server password', 'error');
-            return;
-        }*/
+           /* if (!mssqlPassword) {
+                showStatus('Please enter your SQL Server password', 'error');
+                return;
+            }*/
 
-        // Save credentials to localStorage
-        localStorage.setItem('db_mssql_server', mssqlServer);
-        localStorage.setItem('db_mssql_port', mssqlPort);
-        localStorage.setItem('db_mssql_database', mssqlDatabase);
-        localStorage.setItem('db_mssql_user', mssqlUser);
-        localStorage.setItem('db_mssql_password', mssqlPassword);
+            // Save credentials to localStorage
+            localStorage.setItem('db_mssql_server', mssqlServer);
+            localStorage.setItem('db_mssql_port', mssqlPort);
+            localStorage.setItem('db_mssql_database', mssqlDatabase);
+            localStorage.setItem('db_mssql_user', mssqlUser);
+            localStorage.setItem('db_mssql_password', mssqlPassword);
 
-        // Send credentials to server
-        try {
-            const response = await fetch(`${mssqlUrl}/api/config`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    server: mssqlServer,
-                    port: parseInt(mssqlPort),
-                    database: mssqlDatabase,
-                    user: mssqlUser,
-                    password: mssqlPassword
-                })
-            });
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.error || 'Failed to configure server');
+            // Send credentials to server
+            try {
+                const response = await fetch(`${mssqlUrl}/api/config`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        server: mssqlServer,
+                        port: parseInt(mssqlPort),
+                        database: mssqlDatabase,
+                        user: mssqlUser,
+                        password: mssqlPassword
+                    })
+                });
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Failed to configure server');
+                }
+            } catch (err) {
+                showStatus('Error configuring server: ' + err.message, 'error');
+                return;
             }
-        } catch (err) {
-            showStatus('Error configuring server: ' + err.message, 'error');
-            return;
-        }
 
-dbClient.setMode('mssql', { url: mssqlUrl });
-    } else if (document.getElementById('modeSqlite').checked) {
-        // Save SQLite settings
-        const sqliteUrl = document.getElementById('sqliteUrl').value.trim() || 'http://localhost:3000';
-        localStorage.setItem('db_sqlite_url', sqliteUrl);
-        dbClient.setMode('sqlite', { url: sqliteUrl });
+            dbClient.setMode('mssql', { url: mssqlUrl });
+        } else if (document.getElementById('modeSqlite').checked) {
+            // Save SQLite settings
+            const sqliteUrl = document.getElementById('sqliteUrl').value.trim() || 'http://localhost:3000';
+            localStorage.setItem('db_sqlite_url', sqliteUrl);
+            dbClient.setMode('sqlite', { url: sqliteUrl });
+        }
     }
     
     try {
