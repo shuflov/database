@@ -158,8 +158,12 @@ function showStatus(message, type = 'success') {
 // Toggle database mode in settings
 function toggleDbMode() {
     const isSupabase = document.getElementById('modeSupabase').checked;
+    const isMssql = document.getElementById('modeMssql').checked;
+    const isSqlite = document.getElementById('modeSqlite').checked;
+    
     document.getElementById('supabaseSettings').style.display = isSupabase ? 'block' : 'none';
-    document.getElementById('mssqlSettings').style.display = isSupabase ? 'none' : 'block';
+    document.getElementById('mssqlSettings').style.display = isMssql ? 'block' : 'none';
+    document.getElementById('sqliteSettings').style.display = isSqlite ? 'block' : 'none';
 }
 
 // Settings Modal functions
@@ -169,8 +173,10 @@ function openSettingsModal() {
     // Set radio button
     if (mode === 'supabase') {
         document.getElementById('modeSupabase').checked = true;
-    } else {
+    } else if (mode === 'mssql') {
         document.getElementById('modeMssql').checked = true;
+    } else if (mode === 'sqlite') {
+        document.getElementById('modeSqlite').checked = true;
     }
     toggleDbMode();
     
@@ -183,6 +189,10 @@ function openSettingsModal() {
     // Load MS SQL settings
     const mssqlUrl = localStorage.getItem('db_mssql_url') || 'http://localhost:3000';
     document.getElementById('mssqlUrl').value = mssqlUrl;
+    
+    // Load SQLite settings
+    const sqliteUrl = localStorage.getItem('db_sqlite_url') || 'http://localhost:3000';
+    document.getElementById('sqliteUrl').value = sqliteUrl;
     
     document.getElementById('settingsModal').style.display = 'block';
 }
@@ -253,7 +263,12 @@ async function saveSettings() {
             return;
         }
 
-        dbClient.setMode('mssql', { url: mssqlUrl });
+dbClient.setMode('mssql', { url: mssqlUrl });
+    } else if (document.getElementById('modeSqlite').checked) {
+        // Save SQLite settings
+        const sqliteUrl = document.getElementById('sqliteUrl').value.trim() || 'http://localhost:3000';
+        localStorage.setItem('db_sqlite_url', sqliteUrl);
+        dbClient.setMode('sqlite', { url: sqliteUrl });
     }
     
     try {

@@ -3,9 +3,10 @@
 
 class DatabaseClient {
     constructor() {
-        this.mode = null; // 'supabase' or 'mssql'
+        this.mode = null; // 'supabase', 'mssql', or 'sqlite'
         this.supabaseClient = null;
         this.mssqlBaseUrl = 'http://localhost:3000';
+        this.sqliteBaseUrl = 'http://localhost:3000';
     }
 
     // Initialize based on stored settings
@@ -23,6 +24,9 @@ class DatabaseClient {
         } else if (this.mode === 'mssql') {
             this.mssqlBaseUrl = localStorage.getItem('db_mssql_url') || 'http://localhost:3000';
             return true;
+        } else if (this.mode === 'sqlite') {
+            this.sqliteBaseUrl = localStorage.getItem('db_sqlite_url') || 'http://localhost:3000';
+            return true;
         }
         return false;
     }
@@ -33,6 +37,8 @@ class DatabaseClient {
             return this.supabaseClient !== null;
         } else if (this.mode === 'mssql') {
             return this.mssqlBaseUrl !== null;
+        } else if (this.mode === 'sqlite') {
+            return this.sqliteBaseUrl !== null;
         }
         return false;
     }
@@ -87,7 +93,32 @@ class DatabaseClient {
                 this.mssqlBaseUrl = config.url;
                 localStorage.setItem('db_mssql_url', config.url);
             }
+        } else if (mode === 'sqlite') {
+            if (config.url) {
+                this.sqliteBaseUrl = config.url;
+                localStorage.setItem('db_sqlite_url', config.url);
+            }
         }
+    }
+
+    // =====================
+    // SQLite HTTP Helpers
+    // =====================
+    async sqliteRequest(endpoint, method = 'GET', body = null) {
+        const options = {
+            method: method,
+            headers: { 'Content-Type': 'application/json' }
+        };
+        if (body) {
+            options.body = JSON.stringify(body);
+        }
+        
+        const response = await fetch(`${this.sqliteBaseUrl}${endpoint}`, options);
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || `HTTP ${response.status}`);
+        }
+        return response.json();
     }
 
     // =====================
@@ -118,6 +149,8 @@ class DatabaseClient {
             const { data, error } = await this.supabaseClient.rpc('get_user_tables', {});
             if (error) throw error;
             return data || [];
+        } else if (this.mode === 'sqlite') {
+            return await this.sqliteRequest('/api/sqlite/tables');
         } else {
             return await this.mssqlRequest('/api/tables');
         }
@@ -135,6 +168,8 @@ class DatabaseClient {
             `;
             const { error } = await this.supabaseClient.rpc('execute_sql', { sql_query: sql });
             if (error) throw error;
+        } else if (this.mode === 'sqlite') {
+            await this.sqliteRequest('/api/sqlite/tables', 'POST', { tableName, columns });
         } else {
             await this.mssqlRequest('/api/tables', 'POST', { tableName, columns });
         }
@@ -168,6 +203,24 @@ class DatabaseClient {
                 const { error: insertError } = await this.supabaseClient.from(tableName).insert(rows);
                 if (insertError) throw insertError;
             }
+        } else if (this.mode === 'sqlite') {
+            await this.sqliteRequest('/api/sqlite/tables', 'POST', { 
+                tableName, 
+                columns: sanitizedColumns.map(c => c.sanitized) 
+            });
+
+            // Insert data in batches
+            const batchSize = 50;
+            for (let i = 0; i < data.length; i += batchSize) {
+                const batch = data.slice(i, i + batchSize);
+                for (const row of batch) {
+                    const rowData = {};
+                    sanitizedColumns.forEach(col => {
+                        rowData[col.sanitized] = row[col.original] || '';
+                    });
+                    await this.sqliteRequest(`/api/sqlite/tables/${tableName}/rows`, 'POST', rowData);
+                }
+            }
         } else {
             // MS SQL
             await this.mssqlRequest('/api/tables', 'POST', { 
@@ -195,6 +248,8 @@ class DatabaseClient {
             const sql = `DROP TABLE IF EXISTS ${tableName};`;
             const { error } = await this.supabaseClient.rpc('execute_sql', { sql_query: sql });
             if (error) throw error;
+        } else if (this.mode === 'sqlite') {
+            await this.sqliteRequest(`/api/sqlite/tables/${tableName}`, 'DELETE');
         } else {
             await this.mssqlRequest(`/api/tables/${tableName}`, 'DELETE');
         }
@@ -212,6 +267,8 @@ class DatabaseClient {
                 .limit(limit);
             if (error) throw error;
             return data || [];
+        } else if (this.mode === 'sqlite') {
+            return await this.sqliteRequest(`/api/sqlite/tables/${tableName}?limit=${limit}`);
         } else {
             return await this.mssqlRequest(`/api/tables/${tableName}?limit=${limit}`);
         }
@@ -224,6 +281,9 @@ class DatabaseClient {
                 .select('*', { count: 'exact', head: true });
             if (error) throw error;
             return count;
+        } else if (this.mode === 'sqlite') {
+            const data = await this.sqliteRequest(`/api/sqlite/tables/${tableName}?limit=1000`);
+            return data.length;
         } else {
             const data = await this.mssqlRequest(`/api/tables/${tableName}?limit=1000`);
             return data.length;
@@ -237,6 +297,8 @@ class DatabaseClient {
         if (this.mode === 'supabase') {
             const { error } = await this.supabaseClient.from(tableName).insert([data]);
             if (error) throw error;
+        } else if (this.mode === 'sqlite') {
+            await this.sqliteRequest(`/api/sqlite/tables/${tableName}/rows`, 'POST', data);
         } else {
             await this.mssqlRequest(`/api/tables/${tableName}/rows`, 'POST', data);
         }
@@ -249,6 +311,8 @@ class DatabaseClient {
                 .update(data)
                 .eq('id', rowId);
             if (error) throw error;
+        } else if (this.mode === 'sqlite') {
+            await this.sqliteRequest(`/api/sqlite/tables/${tableName}/rows/${rowId}`, 'PUT', data);
         } else {
             await this.mssqlRequest(`/api/tables/${tableName}/rows/${rowId}`, 'PUT', data);
         }
@@ -261,6 +325,8 @@ class DatabaseClient {
                 .delete()
                 .eq('id', rowId);
             if (error) throw error;
+        } else if (this.mode === 'sqlite') {
+            await this.sqliteRequest(`/api/sqlite/tables/${tableName}/rows/${rowId}`, 'DELETE');
         } else {
             await this.mssqlRequest(`/api/tables/${tableName}/rows/${rowId}`, 'DELETE');
         }
@@ -275,6 +341,9 @@ class DatabaseClient {
                 .single();
             if (error) throw error;
             return data;
+        } else if (this.mode === 'sqlite') {
+            const data = await this.sqliteRequest(`/api/sqlite/tables/${tableName}?limit=1000`);
+            return data.find(row => String(row.id) === String(rowId));
         } else {
             const data = await this.mssqlRequest(`/api/tables/${tableName}?limit=1000`);
             return data.find(row => String(row.id) === String(rowId));
@@ -289,6 +358,8 @@ class DatabaseClient {
             const sql = `ALTER TABLE ${tableName} ADD COLUMN ${columnName} TEXT;`;
             const { error } = await this.supabaseClient.rpc('execute_sql', { sql_query: sql });
             if (error) throw error;
+        } else if (this.mode === 'sqlite') {
+            await this.sqliteRequest(`/api/sqlite/tables/${tableName}/columns`, 'POST', { columnName });
         } else {
             const sql_query = `ALTER TABLE [${tableName}] ADD [${columnName}] NVARCHAR(MAX)`;
             await this.mssqlRequest('/api/execute', 'POST', { sql_query });
@@ -300,6 +371,9 @@ class DatabaseClient {
             const sql = `ALTER TABLE ${tableName} DROP COLUMN ${columnName};`;
             const { error } = await this.supabaseClient.rpc('execute_sql', { sql_query: sql });
             if (error) throw error;
+        } else if (this.mode === 'sqlite') {
+            const sql_query = `ALTER TABLE "${tableName}" DROP COLUMN "${columnName}"`;
+            await this.sqliteRequest('/api/sqlite/execute', 'POST', { sql_query });
         } else {
             const sql_query = `ALTER TABLE [${tableName}] DROP COLUMN [${columnName}]`;
             await this.mssqlRequest('/api/execute', 'POST', { sql_query });
@@ -312,8 +386,14 @@ class DatabaseClient {
     async checkConnection() {
         if (this.mode === 'supabase') {
             try {
-                // Try to get tables using the RPC function - if this works, we're connected
                 await this.getTables();
+                return true;
+            } catch (e) {
+                return false;
+            }
+        } else if (this.mode === 'sqlite') {
+            try {
+                await this.sqliteRequest('/api/sqlite/health');
                 return true;
             } catch (e) {
                 return false;

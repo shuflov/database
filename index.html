@@ -36,11 +36,11 @@
     </div>
     <div id="status"></div>
     
-    <div id="tablesContainer">
+<div id="tablesContainer">
         <div class="setup-required">
-            <h2>Welcome! 👋</h2>
+            <h2>Welcome!</h2>
             <p>To get started, you need to configure your database connection.</p>
-            <p>Click the "⚙️ Settings" button above to connect to Supabase or a local MS SQL Server.</p>
+            <p>Click the "Settings" button above to connect to Supabase, MS SQL Server, or SQLite.</p>
             <button class="submit-btn" onclick="openSettingsModal()">Configure Settings</button>
         </div>
     </div>
@@ -53,7 +53,7 @@
                 <span class="close" onclick="closeSettingsModal()">&times;</span>
             </div>
             
-            <div class="form-group">
+<div class="form-group">
                 <label>Connection Type:</label>
                 <div class="connection-type-selector">
                     <label class="radio-label">
@@ -63,6 +63,10 @@
                     <label class="radio-label">
                         <input type="radio" name="dbMode" value="mssql" id="modeMssql" onchange="toggleDbMode()">
                         <span>MS SQL Server (Local)</span>
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="dbMode" value="sqlite" id="modeSqlite" onchange="toggleDbMode()">
+                        <span>SQLite (Local File)</span>
                     </label>
                 </div>
             </div>
@@ -82,7 +86,7 @@
                 </div>
             </div>
 
-            <!-- MS SQL Settings -->
+<!-- MS SQL Settings -->
             <div id="mssqlSettings" style="display: none;">
                 <div class="form-group">
                     <label for="mssqlServer">SQL Server:</label>
@@ -118,6 +122,23 @@
                     <small>
                         <strong>Note:</strong> Make sure to start the local server first:<br>
                         <code>npm start</code>
+                    </small>
+                </div>
+            </div>
+
+            <!-- SQLite Settings -->
+            <div id="sqliteSettings" style="display: none;">
+                <div class="form-group">
+                    <label for="sqliteUrl">Server API URL:</label>
+                    <input type="text" id="sqliteUrl" placeholder="http://localhost:3000" value="http://localhost:3000">
+                    <small>Local Node.js server address</small>
+                </div>
+                <div class="form-group info-box">
+                    <small>
+                        <strong>Note:</strong> SQLite database is hardcoded at:<br>
+                        <code>C:\Users\pavel\Downloads\sqlite_database.db</code><br>
+                        Make sure to start the local server first:<br>
+                        <code>npm start</code> (run <code>npm install</code> first to install sqlite3)
                     </small>
                 </div>
             </div>

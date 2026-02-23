@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "msnodesqlv8": "^5.1.5",
-    "mssql": "^10.0.1"
+    "mssql": "^10.0.1",
+    "sqlite3": "^5.1.7"
   }
 }
