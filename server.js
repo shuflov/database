@@ -2,13 +2,13 @@ const http = require('http');
 const sql = require('mssql');
 const url = require('url');
 
-// Default SQL Server configuration
+// Default SQL Server configuration - SA user
 const defaultConfig = {
-  server: '.\\SQLEXPRESS',               // force correct instance from start
+  server: 'localhost',
   port: 1433,
   database: 'test',
-  user: 'appuser',
-  password: 'Test1234!',
+  user: 'sa',
+  password: '',  // Empty password - try this
   options: {
     trustServerCertificate: true,
     encrypt: false,
@@ -19,22 +19,31 @@ const defaultConfig = {
 // Store user-provided credentials in memory
 let currentConfig = { ...defaultConfig };
 
-// Helper to get config — ALWAYS merge with forced defaults if invalid
+// Helper to get config
 function getSqlConfig(userCredentials = {}) {
   const cfg = { ...currentConfig };
 
-  // Override with user input, but fix common mistakes
   if (userCredentials.server) {
     let srv = userCredentials.server.trim();
-    if (srv === '.' || srv === '' || srv === 'localhost') {
-      srv = '.\\SQLEXPRESS'; // force correct name
+    if (srv === '.' || srv === '' || srv === 'localhost' || srv === '.\\SQLEXPRESS' || srv === 'localhost\\SQLEXPRESS') {
+      srv = 'localhost';
     }
     cfg.server = srv;
   }
   if (userCredentials.port) cfg.port = parseInt(userCredentials.port) || 1433;
   if (userCredentials.database) cfg.database = userCredentials.database.trim() || 'test';
-  if (userCredentials.user) cfg.user = userCredentials.user.trim() || 'appuser';
-  if (userCredentials.password) cfg.password = userCredentials.password || 'Test1234!';
+  
+  // If user provides credentials, use SQL Server Auth, otherwise Windows Auth
+  if (userCredentials.user && userCredentials.password) {
+    cfg.user = userCredentials.user.trim();
+    cfg.password = userCredentials.password;
+    delete cfg.authentication;
+  } else {
+    cfg.options = {
+      ...cfg.options,
+      trustedConnection: true
+    };
+  }
 
   return cfg;
 }
@@ -82,18 +91,16 @@ const server = http.createServer(async (req, res) => {
         // Set SQL Server configuration
         if (path === '/api/config' && method === 'POST') {
             parseBody(req, async (body) => {
-                // Update currentConfig with validated values
                 currentConfig = getSqlConfig(body);
-
                 res.writeHead(200);
                 res.end(JSON.stringify({ 
-                message: 'Config updated', 
-                config: {
-                    server: currentConfig.server,
-                    port: currentConfig.port,
-                    database: currentConfig.database,
-                    user: currentConfig.user ? currentConfig.user : '(using default)'
-                }
+                    message: 'Config updated', 
+                    config: {
+                        server: currentConfig.server,
+                        port: currentConfig.port,
+                        database: currentConfig.database,
+                        auth: currentConfig.options && currentConfig.options.trustedConnection ? 'Windows Auth' : 'SQL Auth'
+                    }
                 }));
             });
             return;
@@ -235,7 +242,7 @@ const server = http.createServer(async (req, res) => {
             return;
         }
 
-        // Execute custom SQL (ALTER TABLE, etc.)
+        // Execute custom SQL
         if (path === '/api/execute' && method === 'POST') {
             parseBody(req, async (body) => {
                 const { sql_query } = body;
@@ -253,7 +260,7 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ error: 'Not found' }));
 
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Error:', error.message);
         res.writeHead(500);
         res.end(JSON.stringify({ error: error.message }));
     }
@@ -261,5 +268,6 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
     console.log(`MS SQL Server running on port ${PORT}`);
+    console.log(`Using Windows Authentication (default)`);
     console.log(`Config: ${currentConfig.server}/${currentConfig.database}`);
 });
