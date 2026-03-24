@@ -73,11 +73,6 @@ async function loadSettings() {
     const initialized = dbClient.initialize();
     
     if (initialized) {
-        // For MSSQL mode, send credentials to server
-        if (dbClient.getMode() === 'mssql') {
-            await dbClient.sendCredentialsToServer();
-        }
-        
         try {
             const connected = await dbClient.checkConnection();
             updateConnectionStatus(connected);
@@ -124,12 +119,11 @@ function updateConnectionStatus(connected) {
             if (mode === 'supabase') {
                 modeEl.textContent = 'Supabase';
                 const url = localStorage.getItem('db_supabase_url') || '';
-                // Extract project name from URL
                 const match = url.match(/https:\/\/([^\.]+)\.supabase\.co/);
                 detailsEl.textContent = match ? match[1] : 'Cloud';
-            } else if (mode === 'mssql') {
-                modeEl.textContent = 'MS SQL';
-                const server = localStorage.getItem('db_mssql_url') || 'localhost:3000';
+            } else if (mode === 'sqlite') {
+                modeEl.textContent = 'SQLite';
+                const server = localStorage.getItem('db_sqlite_url') || 'localhost:3000';
                 detailsEl.textContent = server.replace('http://', '').replace('https://', '');
             }
             
@@ -158,11 +152,9 @@ function showStatus(message, type = 'success') {
 // Toggle database mode in settings
 function toggleDbMode() {
     const isSupabase = document.getElementById('modeSupabase').checked;
-    const isMssql = document.getElementById('modeMssql').checked;
     const isSqlite = document.getElementById('modeSqlite').checked;
     
     document.getElementById('supabaseSettings').style.display = isSupabase ? 'block' : 'none';
-    document.getElementById('mssqlSettings').style.display = isMssql ? 'block' : 'none';
     document.getElementById('sqliteSettings').style.display = isSqlite ? 'block' : 'none';
 }
 
@@ -173,8 +165,6 @@ function openSettingsModal() {
     // Set radio button
     if (mode === 'supabase') {
         document.getElementById('modeSupabase').checked = true;
-    } else if (mode === 'mssql') {
-        document.getElementById('modeMssql').checked = true;
     } else if (mode === 'sqlite') {
         document.getElementById('modeSqlite').checked = true;
     }
@@ -185,10 +175,6 @@ function openSettingsModal() {
     const key = localStorage.getItem('db_supabase_key') || '';
     document.getElementById('supabaseUrl').value = url;
     document.getElementById('supabaseKey').value = key;
-    
-    // Load MS SQL settings
-    const mssqlUrl = localStorage.getItem('db_mssql_url') || 'http://localhost:3000';
-    document.getElementById('mssqlUrl').value = mssqlUrl;
     
     // Load SQLite settings
     const sqliteUrl = localStorage.getItem('db_sqlite_url') || 'http://localhost:3000';
@@ -221,56 +207,10 @@ async function saveSettings() {
 
         dbClient.setMode('supabase', { url, key });
     } else {
-        if (document.getElementById('modeMssql').checked) {
-            // Save MS SQL settings
-            const mssqlServer = document.getElementById('mssqlServer').value.trim() || 'localhost';
-            const mssqlPort = document.getElementById('mssqlPort').value.trim() || '1433';
-            const mssqlDatabase = document.getElementById('mssqlDatabase').value.trim() || 'test';
-            const mssqlUser = document.getElementById('mssqlUser').value.trim() || 'sa';
-            const mssqlPassword = document.getElementById('mssqlPassword').value;
-            const mssqlUrl = document.getElementById('mssqlUrl').value.trim() || 'http://localhost:3000';
-
-           /* if (!mssqlPassword) {
-                showStatus('Please enter your SQL Server password', 'error');
-                return;
-            }*/
-
-            // Save credentials to localStorage
-            localStorage.setItem('db_mssql_server', mssqlServer);
-            localStorage.setItem('db_mssql_port', mssqlPort);
-            localStorage.setItem('db_mssql_database', mssqlDatabase);
-            localStorage.setItem('db_mssql_user', mssqlUser);
-            localStorage.setItem('db_mssql_password', mssqlPassword);
-
-            // Send credentials to server
-            try {
-                const response = await fetch(`${mssqlUrl}/api/config`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        server: mssqlServer,
-                        port: parseInt(mssqlPort),
-                        database: mssqlDatabase,
-                        user: mssqlUser,
-                        password: mssqlPassword
-                    })
-                });
-                if (!response.ok) {
-                    const err = await response.json();
-                    throw new Error(err.error || 'Failed to configure server');
-                }
-            } catch (err) {
-                showStatus('Error configuring server: ' + err.message, 'error');
-                return;
-            }
-
-            dbClient.setMode('mssql', { url: mssqlUrl });
-        } else if (document.getElementById('modeSqlite').checked) {
-            // Save SQLite settings
-            const sqliteUrl = document.getElementById('sqliteUrl').value.trim() || 'http://localhost:3000';
-            localStorage.setItem('db_sqlite_url', sqliteUrl);
-            dbClient.setMode('sqlite', { url: sqliteUrl });
-        }
+        // Save SQLite settings
+        const sqliteUrl = document.getElementById('sqliteUrl').value.trim() || 'http://localhost:3000';
+        localStorage.setItem('db_sqlite_url', sqliteUrl);
+        dbClient.setMode('sqlite', { url: sqliteUrl });
     }
     
     try {

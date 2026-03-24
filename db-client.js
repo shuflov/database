@@ -1,11 +1,10 @@
 // Database client abstraction layer
-// Supports both Supabase and Local MS SQL Server backends
+// Supports Supabase and SQLite backends
 
 class DatabaseClient {
     constructor() {
-        this.mode = null; // 'supabase', 'mssql', or 'sqlite'
+        this.mode = null; // 'supabase' or 'sqlite'
         this.supabaseClient = null;
-        this.mssqlBaseUrl = 'http://localhost:3000';
         this.sqliteBaseUrl = 'http://localhost:3000';
     }
 
@@ -21,9 +20,6 @@ class DatabaseClient {
                 return true;
             }
             return false;
-        } else if (this.mode === 'mssql') {
-            this.mssqlBaseUrl = localStorage.getItem('db_mssql_url') || 'http://localhost:3000';
-            return true;
         } else if (this.mode === 'sqlite') {
             this.sqliteBaseUrl = localStorage.getItem('db_sqlite_url') || 'http://localhost:3000';
             return true;
@@ -35,41 +31,10 @@ class DatabaseClient {
     isConnected() {
         if (this.mode === 'supabase') {
             return this.supabaseClient !== null;
-        } else if (this.mode === 'mssql') {
-            return this.mssqlBaseUrl !== null;
         } else if (this.mode === 'sqlite') {
             return this.sqliteBaseUrl !== null;
         }
         return false;
-    }
-
-    // Send credentials to server (for MSSQL mode)
-    async sendCredentialsToServer() {
-        const server = localStorage.getItem('db_mssql_server') || 'localhost';
-        const port = localStorage.getItem('db_mssql_port') || '1433';
-        const database = localStorage.getItem('db_mssql_database') || 'test';
-        const user = localStorage.getItem('db_mssql_user') || 'sa';
-        const password = localStorage.getItem('db_mssql_password') || '';
-
-       /* if (!password) return false;*/
-
-        try {
-            const response = await fetch(`${this.mssqlBaseUrl}/api/config`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    server: server,
-                    port: parseInt(port),
-                    database: database,
-                    user: user,
-                    password: password
-                })
-            });
-            return response.ok;
-        } catch (e) {
-            console.error('Failed to send credentials to server:', e);
-            return false;
-        }
     }
 
     // Get current mode
@@ -87,11 +52,6 @@ class DatabaseClient {
                 localStorage.setItem('db_supabase_url', config.url);
                 localStorage.setItem('db_supabase_key', config.key);
                 this.supabaseClient = supabase.createClient(config.url, config.key);
-            }
-        } else if (mode === 'mssql') {
-            if (config.url) {
-                this.mssqlBaseUrl = config.url;
-                localStorage.setItem('db_mssql_url', config.url);
             }
         } else if (mode === 'sqlite') {
             if (config.url) {
@@ -122,26 +82,6 @@ class DatabaseClient {
     }
 
     // =====================
-    // MS SQL HTTP Helpers
-    // =====================
-    async mssqlRequest(endpoint, method = 'GET', body = null) {
-        const options = {
-            method: method,
-            headers: { 'Content-Type': 'application/json' }
-        };
-        if (body) {
-            options.body = JSON.stringify(body);
-        }
-        
-        const response = await fetch(`${this.mssqlBaseUrl}${endpoint}`, options);
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || `HTTP ${response.status}`);
-        }
-        return response.json();
-    }
-
-    // =====================
     // Tables Operations
     // =====================
     async getTables() {
@@ -151,8 +91,6 @@ class DatabaseClient {
             return data || [];
         } else if (this.mode === 'sqlite') {
             return await this.sqliteRequest('/api/sqlite/tables');
-        } else {
-            return await this.mssqlRequest('/api/tables');
         }
     }
 
@@ -170,8 +108,6 @@ class DatabaseClient {
             if (error) throw error;
         } else if (this.mode === 'sqlite') {
             await this.sqliteRequest('/api/sqlite/tables', 'POST', { tableName, columns });
-        } else {
-            await this.mssqlRequest('/api/tables', 'POST', { tableName, columns });
         }
     }
 
@@ -221,25 +157,6 @@ class DatabaseClient {
                     await this.sqliteRequest(`/api/sqlite/tables/${tableName}/rows`, 'POST', rowData);
                 }
             }
-        } else {
-            // MS SQL
-            await this.mssqlRequest('/api/tables', 'POST', { 
-                tableName, 
-                columns: sanitizedColumns.map(c => c.sanitized) 
-            });
-
-            // Insert data in batches
-            const batchSize = 50;
-            for (let i = 0; i < data.length; i += batchSize) {
-                const batch = data.slice(i, i + batchSize);
-                for (const row of batch) {
-                    const rowData = {};
-                    sanitizedColumns.forEach(col => {
-                        rowData[col.sanitized] = row[col.original] || '';
-                    });
-                    await this.mssqlRequest(`/api/tables/${tableName}/rows`, 'POST', rowData);
-                }
-            }
         }
     }
 
@@ -250,8 +167,6 @@ class DatabaseClient {
             if (error) throw error;
         } else if (this.mode === 'sqlite') {
             await this.sqliteRequest(`/api/sqlite/tables/${tableName}`, 'DELETE');
-        } else {
-            await this.mssqlRequest(`/api/tables/${tableName}`, 'DELETE');
         }
     }
 
@@ -269,8 +184,6 @@ class DatabaseClient {
             return data || [];
         } else if (this.mode === 'sqlite') {
             return await this.sqliteRequest(`/api/sqlite/tables/${tableName}?limit=${limit}`);
-        } else {
-            return await this.mssqlRequest(`/api/tables/${tableName}?limit=${limit}`);
         }
     }
 
@@ -284,9 +197,6 @@ class DatabaseClient {
         } else if (this.mode === 'sqlite') {
             const data = await this.sqliteRequest(`/api/sqlite/tables/${tableName}?limit=1000`);
             return data.length;
-        } else {
-            const data = await this.mssqlRequest(`/api/tables/${tableName}?limit=1000`);
-            return data.length;
         }
     }
 
@@ -299,8 +209,6 @@ class DatabaseClient {
             if (error) throw error;
         } else if (this.mode === 'sqlite') {
             await this.sqliteRequest(`/api/sqlite/tables/${tableName}/rows`, 'POST', data);
-        } else {
-            await this.mssqlRequest(`/api/tables/${tableName}/rows`, 'POST', data);
         }
     }
 
@@ -313,8 +221,6 @@ class DatabaseClient {
             if (error) throw error;
         } else if (this.mode === 'sqlite') {
             await this.sqliteRequest(`/api/sqlite/tables/${tableName}/rows/${rowId}`, 'PUT', data);
-        } else {
-            await this.mssqlRequest(`/api/tables/${tableName}/rows/${rowId}`, 'PUT', data);
         }
     }
 
@@ -327,8 +233,6 @@ class DatabaseClient {
             if (error) throw error;
         } else if (this.mode === 'sqlite') {
             await this.sqliteRequest(`/api/sqlite/tables/${tableName}/rows/${rowId}`, 'DELETE');
-        } else {
-            await this.mssqlRequest(`/api/tables/${tableName}/rows/${rowId}`, 'DELETE');
         }
     }
 
@@ -344,9 +248,6 @@ class DatabaseClient {
         } else if (this.mode === 'sqlite') {
             const data = await this.sqliteRequest(`/api/sqlite/tables/${tableName}?limit=1000`);
             return data.find(row => String(row.id) === String(rowId));
-        } else {
-            const data = await this.mssqlRequest(`/api/tables/${tableName}?limit=1000`);
-            return data.find(row => String(row.id) === String(rowId));
         }
     }
 
@@ -360,9 +261,6 @@ class DatabaseClient {
             if (error) throw error;
         } else if (this.mode === 'sqlite') {
             await this.sqliteRequest(`/api/sqlite/tables/${tableName}/columns`, 'POST', { columnName });
-        } else {
-            const sql_query = `ALTER TABLE [${tableName}] ADD [${columnName}] NVARCHAR(MAX)`;
-            await this.mssqlRequest('/api/execute', 'POST', { sql_query });
         }
     }
 
@@ -374,9 +272,6 @@ class DatabaseClient {
         } else if (this.mode === 'sqlite') {
             const sql_query = `ALTER TABLE "${tableName}" DROP COLUMN "${columnName}"`;
             await this.sqliteRequest('/api/sqlite/execute', 'POST', { sql_query });
-        } else {
-            const sql_query = `ALTER TABLE [${tableName}] DROP COLUMN [${columnName}]`;
-            await this.mssqlRequest('/api/execute', 'POST', { sql_query });
         }
     }
 
@@ -394,13 +289,6 @@ class DatabaseClient {
         } else if (this.mode === 'sqlite') {
             try {
                 await this.sqliteRequest('/api/sqlite/health');
-                return true;
-            } catch (e) {
-                return false;
-            }
-        } else {
-            try {
-                await this.mssqlRequest('/api/health');
                 return true;
             } catch (e) {
                 return false;
